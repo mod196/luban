@@ -24,26 +24,47 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"log"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
 func TestGetNodeList(t *testing.T) {
+	requireKubeIntegration(t)
+
 	rules := clientcmd.NewDefaultClientConfigLoadingRules()
 	overrides := &clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{InsecureSkipTLSVerify: true}}
 	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides).ClientConfig()
 	if err != nil {
-		log.Fatalf("Couldn't get Kubernetes default config: %s", err)
+		t.Fatalf("couldn't get Kubernetes default config: %s", err)
 	}
 
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		log.Fatalln(err)
+		t.Fatal(err)
 	}
 
 	nodes, err := client.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, c := range nodes.Items {
 		j, _ := json.Marshal(c)
 		fmt.Println(string(j))
+	}
+}
+
+func requireKubeIntegration(t *testing.T) {
+	t.Helper()
+
+	if os.Getenv("LUBAN_INTEGRATION_TESTS") != "1" {
+		t.Skip("skip Kubernetes integration test; set LUBAN_INTEGRATION_TESTS=1 to enable")
+	}
+	if os.Getenv("KUBECONFIG") == "" {
+		if home, err := os.UserHomeDir(); err != nil || home == "" {
+			t.Skip("skip Kubernetes integration test; home directory not found")
+		} else if _, statErr := os.Stat(filepath.Join(home, ".kube", "config")); statErr != nil {
+			t.Skip("skip Kubernetes integration test; kubeconfig not found")
+		}
 	}
 }

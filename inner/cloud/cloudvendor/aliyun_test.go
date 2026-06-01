@@ -38,6 +38,8 @@ func init() {
 }
 
 func TestALiGetRegions(t *testing.T) {
+	requireAliyunIntegration(t)
+
 	regionSet, err := aliTestClient.GetRegions()
 	if err != nil {
 		t.Fatal(err)
@@ -49,6 +51,8 @@ func TestALiGetRegions(t *testing.T) {
 }
 
 func TestALiGetInstances(t *testing.T) {
+	requireAliyunIntegration(t)
+
 	region := "cn-hangzhou"
 	instancesInfo, err := aliTestClient.GetInstances(region)
 	if err != nil {
@@ -58,5 +62,16 @@ func TestALiGetInstances(t *testing.T) {
 	t.Logf("instances count:%#v\n", instancesInfo)
 	for i, instance := range instancesInfo {
 		t.Logf("i:%d, instance:%#v\n", i, instance)
+	}
+}
+
+func requireAliyunIntegration(t *testing.T) {
+	t.Helper()
+
+	if os.Getenv("LUBAN_INTEGRATION_TESTS") != "1" {
+		t.Skip("skip aliyun integration test; set LUBAN_INTEGRATION_TESTS=1 to enable")
+	}
+	if os.Getenv("ALiCLOUD_SECRET_ID") == "" || os.Getenv("ALiCLOUD_SECRET_KEY") == "" {
+		t.Skip("skip aliyun integration test; ALiCLOUD_SECRET_ID/ALiCLOUD_SECRET_KEY not set")
 	}
 }

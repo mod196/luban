@@ -25,30 +25,31 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"log"
 	"os"
 	"strings"
 	"testing"
 )
 
 func TestGetDeploymentToSVC(t *testing.T) {
+	requireKubeIntegration(t)
+
 	rules := clientcmd.NewDefaultClientConfigLoadingRules()
 	overrides := &clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{InsecureSkipTLSVerify: true}}
 	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides).ClientConfig()
 	if err != nil {
-		log.Fatalf("Couldn't get Kubernetes default config: %s", err)
+		t.Fatalf("couldn't get Kubernetes default config: %s", err)
 	}
 
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		log.Fatalln(err)
+		t.Fatal(err)
 	}
 	namespace := "develop"
 	name := "service"
 	//selector := getDeployment(client, namespace, name)
 	svcData, err := getSvc(client, namespace, name)
 	if err != nil {
-		log.Fatalln(err)
+		t.Fatal(err)
 	}
 	svcJSON, _ := json.Marshal(svcData)
 	fmt.Printf("svcList: %s\n", svcJSON)
