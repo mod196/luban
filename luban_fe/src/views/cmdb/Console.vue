@@ -168,8 +168,7 @@ export default defineComponent({
       localStorage.setItem("webConsole", JSON.stringify(webConsole))
       const token = localStorage.getItem('token');
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      store.webSSHUrl = `${protocol}//localhost:8999/api/v1/ws/webssh?instanceId=${store.instanceId}&token=${token}`
-      // store.webSSHUrl = `${protocol}//${window.location.host}/api/v1/ws/webssh?instanceId=${instanceId}&token=${token}`
+      store.webSSHUrl = `${protocol}//${window.location.host}/api/v1/ws/webssh?instanceId=${store.instanceId}&token=${token}`
       store.ws = new WebSocket(store.webSSHUrl);
 
       term.loadAddon(fitPlugin);

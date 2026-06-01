@@ -18,6 +18,7 @@ package routers
 
 import (
 	"github.com/dnsjia/luban/controller/cmdb"
+	"github.com/dnsjia/luban/controller/k8s"
 	"github.com/gin-gonic/gin"
 )
 
@@ -28,5 +29,6 @@ func InitWebSocketRouter(r *gin.RouterGroup) {
 			c.String(200, "pong")
 		})
 		ws.GET("webssh", cmdb.WebSocketConnect)
+		ws.GET("k8s/terminal", k8s.K8sTerminalController)
 	}
 }

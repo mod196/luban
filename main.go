@@ -29,6 +29,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -43,7 +44,8 @@ func main() {
 	// 如果需要将日志同时写入文件和控制台，请使用以下代码
 	gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
 
-	common.VP = tools.Viper()      // 初始化Viper
+	common.VP = tools.Viper() // 初始化Viper
+	common.NormalizeRuntimeConfig()
 	common.LOG = tools.Zap()       // 初始化zap日志库
 	common.DB = common.GormMysql() // gorm连接数据库
 	common.MysqlTables(common.DB)  // 初始化表
@@ -59,16 +61,21 @@ func main() {
 
 func InitServer() {
 
-	r := gin.Default()
+	r := gin.New()
 	//gin.ForceConsoleColor()
+	r.Use(gin.Recovery())
 	r.Use(middleware.Cors())
 	r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
 		// 你的自定义格式
+		path := param.Path
+		if index := strings.Index(path, "?"); index >= 0 {
+			path = path[:index]
+		}
 		return fmt.Sprintf("%s - [%s] \"%s %s %s %d %s \"%s\" %s\"\n",
 			param.ClientIP,
 			param.TimeStamp.Format(time.RFC3339),
 			param.Method,
-			param.Path,
+			path,
 			param.Request.Proto,
 			param.StatusCode,
 			param.Latency,

@@ -16,6 +16,13 @@ export const CollectionCordonNode = (params, clusterId) => post('/api/v1/k8s/nod
 
 
 export const GetNamespaces = (clusterId) => get('/api/v1/k8s/namespace?clusterId=' + clusterId)
+export const GetK8sServiceTree = (clusterId) => get('/api/v1/k8s/service-tree?clusterId=' + clusterId)
+export const CreateK8sServiceTreeNode = (params) => post('/api/v1/k8s/service-tree/node', params)
+export const BindK8sServiceTreeResource = (params) => post('/api/v1/k8s/service-tree/bindings', params)
+export const GetK8sServiceTreeUnclassified = (clusterId) => get('/api/v1/k8s/service-tree/unclassified?clusterId=' + clusterId)
+export const CreateK8sServiceTreeBindingRule = (params) => post('/api/v1/k8s/service-tree/binding-rules', params)
+export const CreateK8sServiceTreePolicy = (params) => post('/api/v1/k8s/service-tree/policies', params)
+export const GetWorkloadsByServiceTree = (clusterId, params) => get('/api/v1/k8s/workloads?clusterId=' + clusterId, params)
 export const GetDeployment = (clusterId, params) => get('/api/v1/k8s/deployment?clusterId=' + clusterId, params)
 export const DeleteCollectionDeployment = (clusterId, params) => post('/api/v1/k8s/deployments?clusterId=' + clusterId, params)
 export const DeleteDeployment = (clusterId, params) => post('/api/v1/k8s/deployment/delete?clusterId=' + clusterId, params)

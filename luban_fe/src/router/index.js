@@ -247,6 +247,16 @@ const routes = [
                 },
                 children: []
             },
+            {
+                path: 'k8s/container/terminal',
+                name: 'K8sTerminal',
+                component: () => import('../views/container/K8sTerminal.vue'),
+                meta: {
+                    title: '容器终端',
+                    module: "容器管理"
+                },
+                children: []
+            },
         ]
     },
     {

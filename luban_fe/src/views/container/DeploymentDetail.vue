@@ -168,7 +168,7 @@
                     <a-divider type="vertical"/>
                     <a @click="detailPod(text)">详情</a>
                     <a-divider type="vertical"/>
-                    <a>终端</a>
+                    <a :href="k8sPodTerminalHref(text)" @click="openK8sPodTerminal(text)">终端</a>
                     <a-divider type="vertical"/>
                     <a @click="viewPodLog(text)">日志</a>
                     <a-divider type="vertical"/>
@@ -318,6 +318,7 @@ import {inject, onMounted, reactive} from "vue";
 import {useRoute} from "vue-router";
 import {DeleteCollectionPods, DeletePod, DeleteService, DeploymentDetail, DeploymentRollBack} from "../../api/k8s";
 import {GetStorage} from "../../plugin/state/stroge";
+import {k8sPodTerminalHref, openK8sPodTerminal} from "../../plugin/utils/k8sTerminal";
 import routers from "../../router";
 import router from "../../router";
 
@@ -588,6 +589,8 @@ export default {
       removeOneService,
       removeOnServiceOnSubmit,
       viewPodLog,
+      k8sPodTerminalHref,
+      openK8sPodTerminal,
     }
 
   }

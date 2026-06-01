@@ -189,7 +189,7 @@
           <a-space>
             <a @click="podDetail(text)">详情</a>
             <a>编辑</a>
-            <a>终端</a>
+            <a :href="k8sPodTerminalHref(text)" @click="openK8sPodTerminal(text)">终端</a>
             <a @click="viewPodLog(text)">日志</a>
             <a style="color:red;" @click="deletePod(text)">删除</a>
           </a-space>
@@ -234,6 +234,7 @@ import {useRoute} from "vue-router";
 import {DeletePod, NodeDetail} from '../../api/k8s'
 import {GetStorage} from "../../plugin/state/stroge"
 import router from "../../router";
+import {k8sPodTerminalHref, openK8sPodTerminal} from "../../plugin/utils/k8sTerminal";
 const containerColumns = [
   {
     title: '名称',
@@ -405,6 +406,8 @@ export default {
       deletePod,
       deletePodSubmit,
       viewPodLog,
+      k8sPodTerminalHref,
+      openK8sPodTerminal,
     };
   }
 }

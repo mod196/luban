@@ -32,13 +32,19 @@ func GetJobListController(c *gin.Context) {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
 		return
 	}
-	dataSelect := parser.ParseDataSelectPathParameter(c)
+	dataSelect, treeFilter := parseTreeAwareDataSelect(c)
 	nsQuery := parser.ParseNamespacePathParameter(c)
 
 	data, err := job.GetJobList(client, nsQuery, dataSelect)
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
 		return
+	}
+	if treeFilter {
+		if err := filterJobListByTree(c, data); err != nil {
+			response.FailWithMessage(response.Forbidden, err.Error(), c)
+			return
+		}
 	}
 
 	response.OkWithData(data, c)

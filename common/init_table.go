@@ -19,6 +19,7 @@ package common
 import (
 	"github.com/dnsjia/luban/models"
 	"github.com/dnsjia/luban/models/cmdb"
+	modelsk8s "github.com/dnsjia/luban/models/k8s"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"os"
@@ -40,6 +41,15 @@ func MysqlTables(db *gorm.DB) {
 		cmdb.TreeMenu{},
 		cmdb.SSHRecord{},
 		cmdb.SSHGlobalConfig{},
+		modelsk8s.ServiceTreeNode{},
+		modelsk8s.ResourceInventory{},
+		modelsk8s.ServiceTreeBindingRule{},
+		modelsk8s.ServiceTreeBinding{},
+		modelsk8s.TreePolicy{},
+		modelsk8s.TreePolicyUser{},
+		modelsk8s.TreePolicyNode{},
+		modelsk8s.TreePolicyResourceFilter{},
+		modelsk8s.TreePolicyAction{},
 		//
 
 	)

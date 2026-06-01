@@ -2,7 +2,7 @@
   <div>
     <a-space style="padding-left: 10px">
       <!--          <span style="padding-top: 5px">命名空间：</span>-->
-      <a-select v-model:value="queryInfo.namespace" placeholder="请选择命名空间" show-search
+      <a-select v-if="!serviceTreeContext.treeNodeId" v-model:value="queryInfo.namespace" placeholder="请选择命名空间" show-search
                 @change="filterByNamespaceOnDeployment" style="min-width: 180px">
         <a-select-option
             v-for="(item, index) in data.namespaceData"
@@ -46,6 +46,18 @@
           <span v-for="(v, k, i) in text.objectMeta.labels" :key="i">
             <a-tag color="cyan">{{ k }}: {{ v }}</a-tag>
           </span>
+        </template>
+
+        <template #namespace="{text}">
+          <span>{{ text.objectMeta.namespace }}</span>
+        </template>
+
+        <template #envCluster>
+          <span>{{ serviceTreeContext.env || '-' }}</span>
+        </template>
+
+        <template #serviceTree>
+          <a-tag color="blue">{{ serviceTreeContext.service || '-' }}</a-tag>
         </template>
 
         <template #replicas="{text}">
@@ -198,7 +210,7 @@
 </template>
 
 <script>
-import {computed, inject, onMounted, reactive, toRaw, toRefs} from "vue";
+import {computed, inject, onMounted, reactive, toRaw, toRefs, watch} from "vue";
 import {
   DeleteCollectionDeployment,
   DeleteDeployment, DeploymentRollBack,
@@ -223,6 +235,16 @@ const columns = [
     width: 200
   },
   {
+    title: '命名空间',
+    slots: {customRender: 'namespace'},
+    width: 120
+  },
+  {
+    title: '环境/集群',
+    slots: {customRender: 'envCluster'},
+    width: 110
+  },
+  {
     title: '副本数',
     slots: {customRender: 'replicas'},
     width: 80
@@ -235,6 +257,11 @@ const columns = [
   {
     title: '创建时间',
     slots: {customRender: 'creationTimestamp'},
+  },
+  {
+    title: '服务树',
+    slots: {customRender: 'serviceTree'},
+    width: 120
   },
   {
     title: '操作',
@@ -290,9 +317,17 @@ export default {
       namespace: "default",
       filterBy: "",
       sortBy: "d,creationTimestamp",
+      treeNodeId: "",
     });
 
     const message = inject('$message');
+    const serviceTreeContext = inject("serviceTreeContext", reactive({
+      treeNodeId: "",
+      namespace: "",
+      env: "",
+      service: "",
+      path: "",
+    }));
 
     const state = reactive({
       selectedRowKeys: [],
@@ -307,7 +342,7 @@ export default {
           message.error("获取命名空间异常")
         }
       })
-      queryInfo.namespace = localStorage.getItem("namespace")
+      queryInfo.namespace = serviceTreeContext.namespace || localStorage.getItem("namespace")
     }
 
     const hasSelected = computed(() => state.selectedRowKeys.length > 0);
@@ -332,6 +367,10 @@ export default {
       // filterBy=name,ur&itemsPerPage=10&name=&page=1&sortBy=d,creationTimestamp&namespace=default
       data.loading = true
       let cs = GetStorage()
+      queryInfo.treeNodeId = serviceTreeContext.treeNodeId
+      if (serviceTreeContext.namespace) {
+        queryInfo.namespace = serviceTreeContext.namespace
+      }
       GetDeployment(cs.clusterId, queryInfo).then(res => {
         if (res.errCode === 0) {
           data.deploymentData = res.data.deployments
@@ -353,6 +392,7 @@ export default {
       data.searchValue = value
       queryInfo.filterBy = "name," + data.searchValue
       let cs = GetStorage()
+      queryInfo.treeNodeId = serviceTreeContext.treeNodeId
       GetDeployment(cs.clusterId, queryInfo).then(res => {
         if (res.errCode === 0) {
           data.deploymentData = res.data.deployments
@@ -511,10 +551,19 @@ export default {
       GetNamespaceList()
       getDeploymentList()
     })
+    watch(() => serviceTreeContext.treeNodeId, () => {
+      queryInfo.page = 1
+      queryInfo.treeNodeId = serviceTreeContext.treeNodeId
+      if (serviceTreeContext.namespace) {
+        queryInfo.namespace = serviceTreeContext.namespace
+      }
+      getDeploymentList()
+    })
     return {
       data,
       ...toRefs(state),
       queryInfo,
+      serviceTreeContext,
       columns,
       GetNamespaceList,
       hasSelected,

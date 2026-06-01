@@ -30,8 +30,14 @@ type Server struct {
 	Mysql   Mysql         `mapstructure:"mysql"  json:"mysql" yaml:"mysql"`
 	Casbin  models.Casbin `mapstructure:"casbin" json:"casbin" yaml:"casbin"`
 	System  System        `mapstructure:"system" json:"system" yaml:"system"`
+	HTTP    HTTP          `mapstructure:"http"   json:"http" yaml:"http"`
 	Redis   Redis         `mapstructure:"redis"  json:"redis" yaml:"redis"`
 	Crontab Crontab       `mapstructure:"crontab" json:"crontab" yaml:"crontab"`
+}
+
+type HTTP struct {
+	Mode   string `mapstructure:"mode" json:"mode" yaml:"mode"`
+	Listen int    `mapstructure:"listen" json:"listen" yaml:"listen"`
 }
 
 type contactKey struct {
@@ -44,6 +50,27 @@ type ConfigStruct struct {
 }
 
 var Config *ConfigStruct
+
+func NormalizeRuntimeConfig() {
+	if CONFIG.System.Addr == 0 && CONFIG.HTTP.Listen > 0 {
+		CONFIG.System.Addr = CONFIG.HTTP.Listen
+	}
+	if CONFIG.System.Addr == 0 {
+		CONFIG.System.Addr = 8999
+	}
+	if CONFIG.System.Env == "" && CONFIG.HTTP.Mode != "" {
+		CONFIG.System.Env = CONFIG.HTTP.Mode
+	}
+	if CONFIG.System.DbType == "" {
+		CONFIG.System.DbType = "mysql"
+	}
+	if CONFIG.Mysql.Config == "" {
+		CONFIG.Mysql.Config = "charset=utf8mb4&parseTime=True&loc=Local"
+	}
+	if CONFIG.Casbin.ModelPath == "" {
+		CONFIG.Casbin.ModelPath = "./etc/rbac_model.conf"
+	}
+}
 
 func Parse() error {
 	ymlFile := iconf.GetYmlFile("server")

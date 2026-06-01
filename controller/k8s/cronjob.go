@@ -32,13 +32,19 @@ func GetCronJobListController(c *gin.Context) {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
 		return
 	}
-	dataSelect := parser.ParseDataSelectPathParameter(c)
+	dataSelect, treeFilter := parseTreeAwareDataSelect(c)
 	nsQuery := parser.ParseNamespacePathParameter(c)
 
 	data, err := cronjob.GetCronJobList(client, nsQuery, dataSelect)
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
 		return
+	}
+	if treeFilter {
+		if err := filterCronJobListByTree(c, data); err != nil {
+			response.FailWithMessage(response.Forbidden, err.Error(), c)
+			return
+		}
 	}
 
 	response.OkWithData(data, c)

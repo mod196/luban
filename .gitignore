@@ -13,6 +13,8 @@ logs/*.log
 *.log
 .DS_Store
 .vscode
+.playwright-cli/
+output/
 *.sw?
 gin.log
 /latest_log

@@ -34,13 +34,19 @@ func GetPodsListController(c *gin.Context) {
 		return
 	}
 
-	dataSelect := parser.ParseDataSelectPathParameter(c)
+	dataSelect, treeFilter := parseTreeAwareDataSelect(c)
 	nsQuery := parser.ParseNamespacePathParameter(c)
 
 	data, err := pods.GetPodsList(client, nsQuery, dataSelect)
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
 		return
+	}
+	if treeFilter {
+		if err := filterPodListByTree(c, data); err != nil {
+			response.FailWithMessage(response.Forbidden, err.Error(), c)
+			return
+		}
 	}
 
 	response.OkWithData(data, c)

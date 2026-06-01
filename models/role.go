@@ -18,12 +18,18 @@ package models
 
 type Role struct {
 	GModel
-	Name  string `gorm:"column:name;comment:'角色名称';size:128" json:"name"`
-	Desc  string `gorm:"column:desc;comment:'角色描述';size:128" json:"desc"`
-	Menus []Menu `gorm:"many2many:relation_role_menu" json:"menus"`
-	Users []User `gorm:"foreignkey:RoleId"`
+	Name         string `gorm:"column:name;comment:'角色名称';size:128" json:"name"`
+	Desc         string `gorm:"column:desc;comment:'角色描述';size:128" json:"desc"`
+	Code         string `gorm:"column:code;comment:'角色编码';size:128" json:"code"`
+	PermissionID uint   `gorm:"column:permission_id;comment:'权限树根节点'" json:"permission_id"`
+	Menus        []Menu `gorm:"many2many:relation_role_menu" json:"menus"`
+	Users        []User `gorm:"foreignkey:RoleId"`
 }
 
 func (m Role) TableName() string {
 	return m.GModel.TableName("role")
+}
+
+func (m Role) IsSuperAdmin() bool {
+	return m.Code == "super" || m.Name == "super" || m.Name == "超级管理员"
 }

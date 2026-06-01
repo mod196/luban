@@ -142,7 +142,7 @@
               <a-divider type="vertical"/>
               <a @click="detailPod(text)">详情</a>
               <a-divider type="vertical"/>
-              <a>终端</a>
+              <a :href="k8sPodTerminalHref(text)" @click="openK8sPodTerminal(text)">终端</a>
               <a-divider type="vertical"/>
               <a @click="viewPodLog(text)">日志</a>
               <a-divider type="vertical"/>
@@ -189,6 +189,7 @@ import {useRoute} from "vue-router";
 import {GetStorage} from "../../plugin/state/stroge";
 import {DeletePod, JobDetail} from "../../api/k8s";
 import routers from "../../router";
+import {k8sPodTerminalHref, openK8sPodTerminal} from "../../plugin/utils/k8sTerminal";
 
 const eventsColumns = [
   {
@@ -347,6 +348,8 @@ export default {
       removeOnPodOnSubmit,
       detailPod,
       viewPodLog,
+      k8sPodTerminalHref,
+      openK8sPodTerminal,
     }
   }
 }
