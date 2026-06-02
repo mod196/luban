@@ -48,5 +48,6 @@ func InitUserRouter(r *gin.RouterGroup) {
 	UserRouter := r.Group("user")
 	{
 		UserRouter.GET("info", controller.UserInfo)
+		UserRouter.POST("password", controller.ChangePassword)
 	}
 }

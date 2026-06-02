@@ -28,6 +28,12 @@ import (
 	"net/http"
 )
 
+type ChangePasswordRequest struct {
+	OldPassword     string `json:"oldPassword" binding:"required"`
+	NewPassword     string `json:"newPassword" binding:"required"`
+	ConfirmPassword string `json:"confirmPassword" binding:"required"`
+}
+
 func Register(c *gin.Context) {
 	var user models.User
 	err := CheckParams(c, &user)
@@ -129,4 +135,57 @@ func Login(c *gin.Context) {
 func UserInfo(c *gin.Context) {
 	user, _ := c.Get("user")
 	c.JSON(http.StatusOK, gin.H{"errcode": 0, "data": gin.H{"user": user}})
+}
+
+func ChangePassword(c *gin.Context) {
+	var req ChangePasswordRequest
+	if err := CheckParams(c, &req); err != nil {
+		return
+	}
+	if len(req.NewPassword) < 6 {
+		response.FailWithMessage(response.ParamError, "新密码至少 6 位", c)
+		return
+	}
+	if req.NewPassword != req.ConfirmPassword {
+		response.FailWithMessage(response.ParamError, "两次输入的新密码不一致", c)
+		return
+	}
+	if req.OldPassword == req.NewPassword {
+		response.FailWithMessage(response.ParamError, "新密码不能与原密码相同", c)
+		return
+	}
+
+	value, ok := c.Get("user")
+	if !ok {
+		response.FailWithMessage(response.AuthError, "当前登录态无效", c)
+		return
+	}
+	currentUser, ok := value.(models.User)
+	if !ok || currentUser.ID == 0 {
+		response.FailWithMessage(response.AuthError, "当前登录态无效", c)
+		return
+	}
+
+	var user models.User
+	if err := common.DB.First(&user, currentUser.ID).Error; err != nil {
+		common.LOG.Error("查询当前用户失败", zap.Any("err", err))
+		response.FailWithMessage(response.InternalServerError, "查询当前用户失败", c)
+		return
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.OldPassword)); err != nil {
+		response.FailWithMessage(response.AuthError, "原密码错误", c)
+		return
+	}
+	hashPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		common.LOG.Error("生成密码哈希失败", zap.Any("err", err))
+		response.FailWithMessage(response.InternalServerError, "修改密码失败", c)
+		return
+	}
+	if err := common.DB.Model(&models.User{}).Where("id = ?", currentUser.ID).Update("password", string(hashPassword)).Error; err != nil {
+		common.LOG.Error("修改密码失败", zap.Any("err", err))
+		response.FailWithMessage(response.InternalServerError, "修改密码失败", c)
+		return
+	}
+	response.OkWithMessage("密码修改成功，请重新登录", c)
 }

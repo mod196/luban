@@ -267,6 +267,36 @@ const routes = [
                 },
                 children: []
             },
+            {
+                path: 'user/manage',
+                name: 'UserManage',
+                component: () => import('../views/user/UserManage.vue'),
+                meta: {
+                    title: '用户管理',
+                    module: "个人中心"
+                },
+                children: []
+            },
+            {
+                path: 'user/change/password',
+                name: 'ChangePassword',
+                component: () => import('../views/user/ChangePassword.vue'),
+                meta: {
+                    title: '修改密码',
+                    module: "个人中心"
+                },
+                children: []
+            },
+            {
+                path: 'system/settings',
+                name: 'SystemSettings',
+                component: () => import('../views/system/SystemSettings.vue'),
+                meta: {
+                    title: '系统设置',
+                    module: "个人中心"
+                },
+                children: []
+            },
         ]
     },
     {
