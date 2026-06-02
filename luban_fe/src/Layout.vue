@@ -43,6 +43,11 @@
               工作负载
             </router-link>
           </a-menu-item>
+          <a-menu-item key="/k8s/resource-binding">
+            <router-link :to="{path: '/k8s/resource-binding'}">
+              资源绑定
+            </router-link>
+          </a-menu-item>
           <a-menu-item key="/k8s/storage">
             <router-link :to="{path: '/k8s/storage'}">
               存储管理

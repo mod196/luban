@@ -4,9 +4,9 @@
 .DS_Store
 ._*
 gin.log
-logs
-tmp
-node_modules
-luban_fe/node_modules
-luban_fe/dist
-dist
+/logs
+/tmp
+/node_modules
+/luban_fe/node_modules
+/luban_fe/dist
+/dist

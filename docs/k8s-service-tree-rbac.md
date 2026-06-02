@@ -102,16 +102,22 @@ bff-wallet   -> 钱包核心 / 支付路由 / 账务对账 -> dev-sg / prod-sg /
 ```text
 GET  /api/v1/k8s/service-tree
 POST /api/v1/k8s/service-tree/node
+GET  /api/v1/k8s/service-tree/bindings
 POST /api/v1/k8s/service-tree/bindings
 GET  /api/v1/k8s/service-tree/unclassified
+GET  /api/v1/k8s/service-tree/binding-rules
 POST /api/v1/k8s/service-tree/binding-rules
+GET  /api/v1/k8s/service-tree/policies
 POST /api/v1/k8s/service-tree/policies
+GET  /api/v1/k8s/service-tree/principals
+GET  /api/v1/k8s/service-tree/app-labels
 GET  /api/v1/k8s/workloads?treeNodeId=&kind=&keyword=
 ```
 
 接口行为：
 
 - `GET /api/v1/k8s/service-tree` 返回当前用户可见的裁剪后服务树。
+- `GET /api/v1/k8s/service-tree/app-labels` 使用已注册集群的 kubeconfig 通过 client-go 读取资源 `metadata.labels.app`，给绑定规则和授权过滤提供下拉候选。
 - `GET /api/v1/k8s/workloads` 必须根据 `treeNodeId` 和当前用户授权过滤资源。
 - 现有详情、日志、重启、伸缩、删除、终端、YAML 修改接口必须接入服务树授权校验。
 - 前端只负责展示和传参，不能作为权限边界。
@@ -232,6 +238,8 @@ WHERE path IN (
   '/api/v1/k8s/service-tree/unclassified',
   '/api/v1/k8s/service-tree/binding-rules',
   '/api/v1/k8s/service-tree/policies',
+  '/api/v1/k8s/service-tree/principals',
+  '/api/v1/k8s/service-tree/app-labels',
   '/api/v1/k8s/workloads'
 );
 

@@ -22,6 +22,7 @@ import (
 	"github.com/dnsjia/luban/controller"
 	"github.com/dnsjia/luban/controller/response"
 	"github.com/dnsjia/luban/models"
+	"github.com/dnsjia/luban/pkg/k8s/Init"
 	"github.com/dnsjia/luban/services"
 	"github.com/gin-gonic/gin"
 )
@@ -87,6 +88,18 @@ func CreateServiceTreeBindingController(c *gin.Context) {
 	response.Ok(c)
 }
 
+func GetServiceTreeBindingsController(c *gin.Context) {
+	data, err := services.ListK8sServiceTreeBindings(
+		c.Query("clusterId"),
+		services.ParseTreeNodeID(c.Query("treeNodeId")),
+	)
+	if err != nil {
+		response.FailWithMessage(response.InternalServerError, err.Error(), c)
+		return
+	}
+	response.OkWithData(data, c)
+}
+
 func GetServiceTreeUnclassifiedController(c *gin.Context) {
 	data, err := services.ListK8sServiceTreeUnclassified(c.Query("clusterId"))
 	if err != nil {
@@ -110,6 +123,15 @@ func CreateServiceTreeBindingRuleController(c *gin.Context) {
 	response.OkWithData(rule, c)
 }
 
+func GetServiceTreeBindingRulesController(c *gin.Context) {
+	data, err := services.ListK8sServiceTreeBindingRules(c.Query("clusterId"), c.Query("namespace"))
+	if err != nil {
+		response.FailWithMessage(response.InternalServerError, err.Error(), c)
+		return
+	}
+	response.OkWithData(data, c)
+}
+
 func CreateServiceTreePolicyController(c *gin.Context) {
 	var req services.TreePolicyRequest
 	if err := controller.CheckParams(c, &req); err != nil {
@@ -126,6 +148,38 @@ func CreateServiceTreePolicyController(c *gin.Context) {
 		return
 	}
 	response.OkWithData(policy, c)
+}
+
+func GetServiceTreePoliciesController(c *gin.Context) {
+	data, err := services.ListK8sTreePolicies()
+	if err != nil {
+		response.FailWithMessage(response.InternalServerError, err.Error(), c)
+		return
+	}
+	response.OkWithData(data, c)
+}
+
+func GetServiceTreePrincipalsController(c *gin.Context) {
+	data, err := services.ListK8sTreePrincipals(c.DefaultQuery("principalType", "user"), c.Query("keyword"))
+	if err != nil {
+		response.FailWithMessage(response.ParamError, err.Error(), c)
+		return
+	}
+	response.OkWithData(data, c)
+}
+
+func GetServiceTreeAppLabelsController(c *gin.Context) {
+	client, err := Init.ClusterID(c)
+	if err != nil {
+		response.FailWithMessage(response.InternalServerError, err.Error(), c)
+		return
+	}
+	data, err := services.ListK8sAppLabelOptions(client, c.Query("namespace"), c.Query("kind"))
+	if err != nil {
+		response.FailWithMessage(response.InternalServerError, err.Error(), c)
+		return
+	}
+	response.OkWithData(data, c)
 }
 
 func currentUser(c *gin.Context) *models.User {

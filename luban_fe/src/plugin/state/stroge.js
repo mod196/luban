@@ -11,14 +11,20 @@
 // }
 export
 const GetStorage = () => {
-    const cluster = {}
-    const cs = JSON.parse(localStorage.getItem("cluster"))
-    if (cs !== null && cs !== undefined && cs !== "") {
-
-        cluster.clusterId = cs.clusterId
-        cluster.clusterName = cs.clusterName
-
-        return cluster
+    const defaultCluster = {
+        clusterId: "1",
+        clusterName: "",
     }
-    return false
+    try {
+        const cs = JSON.parse(localStorage.getItem("cluster"))
+        if (cs !== null && cs !== undefined && cs !== "" && cs.clusterId && cs.clusterId !== "undefined" && cs.clusterId !== "null") {
+            return {
+                clusterId: cs.clusterId,
+                clusterName: cs.clusterName || "",
+            }
+        }
+    } catch (e) {
+        localStorage.removeItem("cluster")
+    }
+    return defaultCluster
 }

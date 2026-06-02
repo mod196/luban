@@ -9,6 +9,8 @@ WHERE `path` IN (
   '/api/v1/k8s/service-tree/unclassified',
   '/api/v1/k8s/service-tree/binding-rules',
   '/api/v1/k8s/service-tree/policies',
+  '/api/v1/k8s/service-tree/principals',
+  '/api/v1/k8s/service-tree/app-labels',
   '/api/v1/k8s/workloads'
 );
 

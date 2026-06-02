@@ -128,7 +128,7 @@ func (TreePolicy) TableName() string {
 type TreePolicyUser struct {
 	ID            uint   `gorm:"primarykey;comment:'自增编号'" json:"id"`
 	PolicyID      uint   `gorm:"column:policy_id;not null;comment:'授权规则ID'" json:"policyId"`
-	PrincipalType string `gorm:"column:principal_type;size:32;not null;comment:'主体类型(user/role)'" json:"principalType"`
+	PrincipalType string `gorm:"column:principal_type;size:32;not null;comment:'主体类型(user/role/dept)'" json:"principalType"`
 	PrincipalID   uint   `gorm:"column:principal_id;not null;comment:'主体ID'" json:"principalId"`
 }
 

@@ -14,14 +14,39 @@
     </div>
 
     <div class="workload-body">
-      <div class="service-tree-panel">
+      <div class="service-tree-panel" :class="{'is-collapsed': data.serviceTreeCollapsed}">
         <div class="service-tree-toolbar">
-          <span class="service-tree-title">服务树</span>
-          <a-space>
+          <span v-show="!data.serviceTreeCollapsed" class="service-tree-title">服务树</span>
+          <a-space v-if="!data.serviceTreeCollapsed" :size="6">
             <a-button size="small">新建节点</a-button>
             <a-button size="small">授权</a-button>
+            <a-tooltip title="折叠服务树">
+              <a-button
+                  class="service-tree-collapse-button"
+                  size="small"
+                  aria-label="折叠服务树"
+                  @click="toggleServiceTree"
+              >
+                <template #icon>
+                  <MenuFoldOutlined />
+                </template>
+              </a-button>
+            </a-tooltip>
           </a-space>
+          <a-tooltip v-else title="展开服务树">
+            <a-button
+                class="service-tree-collapse-button"
+                size="small"
+                aria-label="展开服务树"
+                @click="toggleServiceTree"
+            >
+              <template #icon>
+                <MenuUnfoldOutlined />
+              </template>
+            </a-button>
+          </a-tooltip>
         </div>
+        <div v-show="!data.serviceTreeCollapsed" class="service-tree-inner">
         <a-input-search
             v-model:value="data.treeKeyword"
             placeholder="搜索服务节点"
@@ -34,8 +59,9 @@
               :tree-data="data.serviceTreeData"
               default-expand-all
               @select="onSelectServiceTree"
-          />
+        />
         </a-spin>
+        </div>
       </div>
 
       <div class="workload-content">
@@ -85,6 +111,7 @@ import Job from "./Job";
 import CronJob from "./CronJob";
 import {GetK8sServiceTree} from "../../api/k8s";
 import {GetStorage} from "../../plugin/state/stroge";
+import {MenuFoldOutlined, MenuUnfoldOutlined} from '@ant-design/icons-vue';
 export default {
   name: "WorkLoad",
   setup() {
@@ -99,6 +126,7 @@ export default {
           selectedTreeKeys: [],
           serviceTreeData: [],
           serviceTreeNodeMap: {},
+          serviceTreeCollapsed: false,
     })
 
     const serviceTreeContext = reactive({
@@ -188,6 +216,10 @@ export default {
       })
     }
 
+    const toggleServiceTree = () => {
+      data.serviceTreeCollapsed = !data.serviceTreeCollapsed
+    }
+
     onMounted(() => {
       getWorkloadTable()
       getServiceTree()
@@ -199,10 +231,13 @@ export default {
       serviceTreeContext,
       getServiceTree,
       onSelectServiceTree,
+      toggleServiceTree,
     }
   },
 
   components: {
+    MenuFoldOutlined,
+    MenuUnfoldOutlined,
     CronJob,
     Job,
     DaemonSet,
@@ -238,15 +273,36 @@ export default {
 }
 .service-tree-panel {
   border: 1px solid #f0f0f0;
-  flex: 0 0 300px;
+  box-sizing: border-box;
+  flex: 0 0 260px;
   min-height: 620px;
-  padding: 16px;
+  overflow: hidden;
+  padding: 12px;
+  position: relative;
+  transition: flex-basis .2s ease, padding .2s ease;
+}
+.service-tree-panel.is-collapsed {
+  flex-basis: 44px;
+  padding: 12px 8px;
+}
+.service-tree-collapse-button {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  width: 28px;
+}
+.service-tree-inner {
+  min-width: 236px;
 }
 .service-tree-toolbar {
   align-items: center;
   display: flex;
   justify-content: space-between;
   margin-bottom: 12px;
+}
+.service-tree-panel.is-collapsed .service-tree-toolbar {
+  justify-content: center;
+  margin-bottom: 0;
 }
 .service-tree-title {
   color: #262626;

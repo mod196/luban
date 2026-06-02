@@ -78,6 +78,16 @@ const routes = [
                 children: []
             },
             {
+                path: 'k8s/resource-binding',
+                name: 'ServiceTreeBinding',
+                component: () => import('../views/container/ServiceTreeBinding.vue'),
+                meta: {
+                    title: '资源绑定',
+                    module: "容器管理"
+                },
+                children: []
+            },
+            {
                 path: 'k8s/workload/deployment/detail',
                 name: 'DeploymentDetail',
                 component: () => import('../views/container/DeploymentDetail.vue'),

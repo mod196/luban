@@ -17,9 +17,11 @@ limitations under the License.
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -28,11 +30,14 @@ import (
 	"github.com/dnsjia/luban/models"
 	k8smodel "github.com/dnsjia/luban/models/k8s"
 	"gorm.io/gorm"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
 	treePolicyPrincipalUser = "user"
 	treePolicyPrincipalRole = "role"
+	treePolicyPrincipalDept = "dept"
 	treePolicyEffectAllow   = "allow"
 	treePolicyEffectDeny    = "deny"
 )
@@ -94,6 +99,20 @@ type TreePolicyRequest struct {
 	Actions     []TreePolicyActionItem `json:"actions"`
 }
 
+type TreePolicyDTO struct {
+	ID          uint                   `json:"id"`
+	Name        string                 `json:"name"`
+	Status      bool                   `json:"status"`
+	StartTime   models.LocalTime       `json:"startTime"`
+	EndTime     models.LocalTime       `json:"endTime"`
+	Description string                 `json:"description"`
+	CreatedBy   string                 `json:"createdBy"`
+	Users       []TreePolicyPrincipal  `json:"users"`
+	Nodes       []TreePolicyNodeGrant  `json:"nodes"`
+	Filters     []TreePolicyFilter     `json:"filters"`
+	Actions     []TreePolicyActionItem `json:"actions"`
+}
+
 type TreePolicyPrincipal struct {
 	PrincipalType string `json:"principalType" binding:"required"`
 	PrincipalID   uint   `json:"principalId" binding:"required"`
@@ -117,6 +136,23 @@ type TreePolicyFilter struct {
 type TreePolicyActionItem struct {
 	Action string `json:"action" binding:"required"`
 	Effect string `json:"effect"`
+}
+
+type TreePrincipalOption struct {
+	PrincipalType string `json:"principalType"`
+	ID            uint   `json:"id"`
+	Name          string `json:"name"`
+	Description   string `json:"description"`
+}
+
+type K8sAppLabelOption struct {
+	LabelKey      string   `json:"labelKey"`
+	LabelValue    string   `json:"labelValue"`
+	LabelSelector string   `json:"labelSelector"`
+	ResourceCount int      `json:"resourceCount"`
+	Namespaces    []string `json:"namespaces"`
+	Kinds         []string `json:"kinds"`
+	Resources     []string `json:"resources"`
 }
 
 type WorkloadResourceFilter struct {
@@ -272,9 +308,39 @@ func CreateK8sServiceTreeBindingRule(req ServiceTreeBindingRuleRequest) (*k8smod
 	return rule, nil
 }
 
+func ListK8sServiceTreeBindingRules(clusterID, namespace string) ([]k8smodel.ServiceTreeBindingRule, error) {
+	var rules []k8smodel.ServiceTreeBindingRule
+	query := common.DB.Order("priority asc,id desc")
+	if clusterID != "" {
+		query = query.Where("cluster_id = ? OR cluster_id = '' OR cluster_id IS NULL", clusterID)
+	}
+	if namespace != "" {
+		query = query.Where("namespace = ? OR namespace = '' OR namespace IS NULL", namespace)
+	}
+	err := query.Limit(200).Find(&rules).Error
+	return rules, err
+}
+
+func ListK8sServiceTreeBindings(clusterID string, nodeID uint) ([]k8smodel.ServiceTreeBinding, error) {
+	var bindings []k8smodel.ServiceTreeBinding
+	query := common.DB.Where("status = ?", true).Order("updated_at desc,id desc")
+	if clusterID != "" {
+		query = query.Where("cluster_id = ?", clusterID)
+	}
+	if nodeID != 0 {
+		nodeIDs, err := descendantNodeIDs(nodeID)
+		if err != nil {
+			return nil, err
+		}
+		query = query.Where("node_id IN ?", nodeIDs)
+	}
+	err := query.Limit(500).Find(&bindings).Error
+	return bindings, err
+}
+
 func ListK8sServiceTreeUnclassified(clusterID string) ([]k8smodel.ResourceInventory, error) {
 	var items []k8smodel.ResourceInventory
-	query := common.DB.Table("k8s_resource_inventory i").
+	query := common.DB.Unscoped().Table("k8s_resource_inventory i").
 		Select("i.*").
 		Joins("LEFT JOIN k8s_service_tree_binding b ON b.cluster_id = i.cluster_id AND b.uid = i.uid AND b.deleted_at IS NULL AND b.status = ?", true).
 		Where("i.deleted_at IS NULL").
@@ -305,9 +371,9 @@ func CreateK8sTreePolicy(req TreePolicyRequest, createdBy string) (*k8smodel.Tre
 			return err
 		}
 		for _, user := range req.Users {
-			principalType := strings.TrimSpace(user.PrincipalType)
-			if principalType == "" {
-				principalType = treePolicyPrincipalUser
+			principalType := normalizeTreePolicyPrincipalType(user.PrincipalType)
+			if !validTreePolicyPrincipalType(principalType) {
+				return fmt.Errorf("unsupported tree policy principal type: %s", user.PrincipalType)
 			}
 			if err := tx.Create(&k8smodel.TreePolicyUser{
 				PolicyID:      policy.ID,
@@ -371,8 +437,345 @@ func CreateK8sTreePolicy(req TreePolicyRequest, createdBy string) (*k8smodel.Tre
 	return policy, nil
 }
 
+func ListK8sTreePolicies() ([]TreePolicyDTO, error) {
+	var policies []k8smodel.TreePolicy
+	if err := common.DB.Order("updated_at desc,id desc").Limit(200).Find(&policies).Error; err != nil {
+		return nil, err
+	}
+	if len(policies) == 0 {
+		return []TreePolicyDTO{}, nil
+	}
+
+	policyIDs := make([]uint, 0, len(policies))
+	for _, policy := range policies {
+		policyIDs = append(policyIDs, policy.ID)
+	}
+
+	var users []k8smodel.TreePolicyUser
+	var nodes []k8smodel.TreePolicyNode
+	var filters []k8smodel.TreePolicyResourceFilter
+	var actions []k8smodel.TreePolicyAction
+	if err := common.DB.Where("policy_id IN ?", policyIDs).Find(&users).Error; err != nil {
+		return nil, err
+	}
+	if err := common.DB.Where("policy_id IN ?", policyIDs).Find(&nodes).Error; err != nil {
+		return nil, err
+	}
+	if err := common.DB.Where("policy_id IN ?", policyIDs).Find(&filters).Error; err != nil {
+		return nil, err
+	}
+	if err := common.DB.Where("policy_id IN ?", policyIDs).Find(&actions).Error; err != nil {
+		return nil, err
+	}
+
+	usersByPolicy := map[uint][]TreePolicyPrincipal{}
+	for _, user := range users {
+		usersByPolicy[user.PolicyID] = append(usersByPolicy[user.PolicyID], TreePolicyPrincipal{
+			PrincipalType: user.PrincipalType,
+			PrincipalID:   user.PrincipalID,
+		})
+	}
+	nodesByPolicy := map[uint][]TreePolicyNodeGrant{}
+	for _, node := range nodes {
+		inherit := node.Inherit
+		nodesByPolicy[node.PolicyID] = append(nodesByPolicy[node.PolicyID], TreePolicyNodeGrant{
+			NodeID:  node.NodeID,
+			Inherit: &inherit,
+		})
+	}
+	filtersByPolicy := map[uint][]TreePolicyFilter{}
+	for _, filter := range filters {
+		filtersByPolicy[filter.PolicyID] = append(filtersByPolicy[filter.PolicyID], TreePolicyFilter{
+			NodeID:        filter.NodeID,
+			ClusterID:     filter.ClusterID,
+			Namespace:     filter.Namespace,
+			Kind:          filter.Kind,
+			Name:          filter.Name,
+			NameRegex:     filter.NameRegex,
+			LabelSelector: filter.LabelSelector,
+		})
+	}
+	actionsByPolicy := map[uint][]TreePolicyActionItem{}
+	for _, action := range actions {
+		actionsByPolicy[action.PolicyID] = append(actionsByPolicy[action.PolicyID], TreePolicyActionItem{
+			Action: action.Action,
+			Effect: action.Effect,
+		})
+	}
+
+	result := make([]TreePolicyDTO, 0, len(policies))
+	for _, policy := range policies {
+		result = append(result, TreePolicyDTO{
+			ID:          policy.ID,
+			Name:        policy.Name,
+			Status:      policy.Status,
+			StartTime:   policy.StartTime,
+			EndTime:     policy.EndTime,
+			Description: policy.Description,
+			CreatedBy:   policy.CreatedBy,
+			Users:       usersByPolicy[policy.ID],
+			Nodes:       nodesByPolicy[policy.ID],
+			Filters:     filtersByPolicy[policy.ID],
+			Actions:     actionsByPolicy[policy.ID],
+		})
+	}
+	return result, nil
+}
+
+func ListK8sTreePrincipals(principalType, keyword string) ([]TreePrincipalOption, error) {
+	principalType = normalizeTreePolicyPrincipalType(principalType)
+	if !validTreePolicyPrincipalType(principalType) {
+		return nil, fmt.Errorf("unsupported tree policy principal type: %s", principalType)
+	}
+
+	keyword = strings.TrimSpace(keyword)
+	like := "%" + keyword + "%"
+	result := make([]TreePrincipalOption, 0)
+
+	switch principalType {
+	case treePolicyPrincipalUser:
+		var users []models.User
+		query := common.DB.Order("id desc").Limit(50)
+		if keyword != "" {
+			query = query.Where("username LIKE ? OR nick_name LIKE ? OR email LIKE ?", like, like, like)
+		}
+		if err := query.Find(&users).Error; err != nil {
+			return nil, err
+		}
+		for _, user := range users {
+			name := user.NickName
+			if name == "" {
+				name = user.UserName
+			}
+			result = append(result, TreePrincipalOption{
+				PrincipalType: principalType,
+				ID:            user.ID,
+				Name:          name,
+				Description:   user.Email,
+			})
+		}
+	case treePolicyPrincipalRole:
+		var roles []models.Role
+		query := common.DB.Order("id desc").Limit(50)
+		if keyword != "" {
+			query = query.Where("name LIKE ? OR code LIKE ? OR `desc` LIKE ?", like, like, like)
+		}
+		if err := query.Find(&roles).Error; err != nil {
+			return nil, err
+		}
+		for _, role := range roles {
+			result = append(result, TreePrincipalOption{
+				PrincipalType: principalType,
+				ID:            role.ID,
+				Name:          role.Name,
+				Description:   role.Desc,
+			})
+		}
+	case treePolicyPrincipalDept:
+		var depts []models.Dept
+		query := common.DB.Order("sort asc,id desc").Limit(50)
+		if keyword != "" {
+			query = query.Where("name LIKE ?", like)
+		}
+		if err := query.Find(&depts).Error; err != nil {
+			return nil, err
+		}
+		for _, dept := range depts {
+			result = append(result, TreePrincipalOption{
+				PrincipalType: principalType,
+				ID:            dept.ID,
+				Name:          dept.Name,
+				Description:   "部门",
+			})
+		}
+	}
+	return result, nil
+}
+
+func ListK8sAppLabelOptions(client kubernetes.Interface, namespace, kind string) ([]K8sAppLabelOption, error) {
+	if client == nil {
+		return nil, errors.New("k8s client is nil")
+	}
+
+	namespace = strings.TrimSpace(namespace)
+	kind = normalizeKind(kind)
+	ctx := context.TODO()
+	options := map[string]*K8sAppLabelOption{}
+
+	add := func(resourceKind, ns, name string, labels map[string]string) {
+		if labels == nil {
+			return
+		}
+		value := strings.TrimSpace(labels["app"])
+		if value == "" {
+			return
+		}
+		item, ok := options[value]
+		if !ok {
+			item = &K8sAppLabelOption{
+				LabelKey:      "app",
+				LabelValue:    value,
+				LabelSelector: "app=" + value,
+			}
+			options[value] = item
+		}
+		item.ResourceCount++
+		appendUniqueString(&item.Namespaces, ns)
+		appendUniqueString(&item.Kinds, normalizeKind(resourceKind))
+		appendUniqueString(&item.Resources, ns+"/"+normalizeKind(resourceKind)+"/"+name)
+	}
+
+	listDeployments := func() error {
+		items, err := client.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		for _, item := range items.Items {
+			add("deployment", item.Namespace, item.Name, item.Labels)
+		}
+		return nil
+	}
+	listStatefulSets := func() error {
+		items, err := client.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		for _, item := range items.Items {
+			add("statefulset", item.Namespace, item.Name, item.Labels)
+		}
+		return nil
+	}
+	listDaemonSets := func() error {
+		items, err := client.AppsV1().DaemonSets(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		for _, item := range items.Items {
+			add("daemonset", item.Namespace, item.Name, item.Labels)
+		}
+		return nil
+	}
+	listJobs := func() error {
+		items, err := client.BatchV1().Jobs(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		for _, item := range items.Items {
+			add("job", item.Namespace, item.Name, item.Labels)
+		}
+		return nil
+	}
+	listCronJobs := func() error {
+		items, err := client.BatchV1().CronJobs(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		for _, item := range items.Items {
+			add("cronjob", item.Namespace, item.Name, item.Labels)
+		}
+		return nil
+	}
+	listPods := func() error {
+		items, err := client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		for _, item := range items.Items {
+			add("pod", item.Namespace, item.Name, item.Labels)
+		}
+		return nil
+	}
+	listServices := func() error {
+		items, err := client.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		for _, item := range items.Items {
+			add("service", item.Namespace, item.Name, item.Labels)
+		}
+		return nil
+	}
+	listIngresses := func() error {
+		items, err := client.NetworkingV1().Ingresses(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		for _, item := range items.Items {
+			add("ingress", item.Namespace, item.Name, item.Labels)
+		}
+		return nil
+	}
+
+	listAll := []func() error{
+		listDeployments,
+		listStatefulSets,
+		listDaemonSets,
+		listJobs,
+		listCronJobs,
+		listPods,
+		listServices,
+		listIngresses,
+	}
+	listByKind := map[string]func() error{
+		"deployment":   listDeployments,
+		"deployments":  listDeployments,
+		"statefulset":  listStatefulSets,
+		"statefulsets": listStatefulSets,
+		"daemonset":    listDaemonSets,
+		"daemonsets":   listDaemonSets,
+		"job":          listJobs,
+		"jobs":         listJobs,
+		"cronjob":      listCronJobs,
+		"cronjobs":     listCronJobs,
+		"pod":          listPods,
+		"pods":         listPods,
+		"service":      listServices,
+		"services":     listServices,
+		"ingress":      listIngresses,
+		"ingresses":    listIngresses,
+	}
+
+	if kind == "" || kind == "all" {
+		for _, listFn := range listAll {
+			if err := listFn(); err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		listFn, ok := listByKind[kind]
+		if !ok {
+			return nil, fmt.Errorf("unsupported resource kind: %s", kind)
+		}
+		if err := listFn(); err != nil {
+			return nil, err
+		}
+	}
+
+	result := make([]K8sAppLabelOption, 0, len(options))
+	for _, item := range options {
+		sort.Strings(item.Namespaces)
+		sort.Strings(item.Kinds)
+		sort.Strings(item.Resources)
+		result = append(result, *item)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].ResourceCount == result[j].ResourceCount {
+			return result[i].LabelValue < result[j].LabelValue
+		}
+		return result[i].ResourceCount > result[j].ResourceCount
+	})
+	return result, nil
+}
+
 func BuildWorkloadResourceFilter(user *models.User, clusterID string, treeNodeID uint, kind string) (*WorkloadResourceFilter, error) {
 	if treeNodeID == 0 {
+		if user != nil && !user.Role.IsSuperAdmin() {
+			return &WorkloadResourceFilter{
+				Enabled:          true,
+				HasBindings:      true,
+				AllowedResources: map[string]struct{}{},
+			}, nil
+		}
 		return &WorkloadResourceFilter{}, nil
 	}
 
@@ -453,6 +856,28 @@ func normalizeKind(kind string) string {
 	return strings.ToLower(strings.TrimSpace(kind))
 }
 
+func normalizeTreePolicyPrincipalType(principalType string) string {
+	switch strings.ToLower(strings.TrimSpace(principalType)) {
+	case "", treePolicyPrincipalUser:
+		return treePolicyPrincipalUser
+	case treePolicyPrincipalRole:
+		return treePolicyPrincipalRole
+	case treePolicyPrincipalDept, "department":
+		return treePolicyPrincipalDept
+	default:
+		return strings.ToLower(strings.TrimSpace(principalType))
+	}
+}
+
+func validTreePolicyPrincipalType(principalType string) bool {
+	switch normalizeTreePolicyPrincipalType(principalType) {
+	case treePolicyPrincipalUser, treePolicyPrincipalRole, treePolicyPrincipalDept:
+		return true
+	default:
+		return false
+	}
+}
+
 func validTreeNodeType(nodeType string) bool {
 	switch nodeType {
 	case k8smodel.ServiceTreeNodeTypeNamespace,
@@ -514,7 +939,7 @@ func authorizedNodeIDSet(user *models.User, action string) (map[uint]struct{}, b
 		return nil, false, err
 	}
 	if len(policyIDs) == 0 {
-		return nil, false, nil
+		return map[uint]struct{}{}, true, nil
 	}
 
 	allowPolicyIDs, err := policyIDsWithAction(policyIDs, action)
@@ -560,12 +985,24 @@ func authorizedNodeIDSet(user *models.User, action string) (map[uint]struct{}, b
 func activePolicyIDs(user *models.User) ([]uint, error) {
 	now := time.Now()
 	var links []k8smodel.TreePolicyUser
+	principalWhere := []string{
+		"(u.principal_type = ? AND u.principal_id = ?)",
+		"(u.principal_type = ? AND u.principal_id = ?)",
+	}
+	principalArgs := []interface{}{
+		treePolicyPrincipalUser, user.ID,
+		treePolicyPrincipalRole, user.RoleId,
+	}
+	if user.DeptId != 0 {
+		principalWhere = append(principalWhere, "(u.principal_type = ? AND u.principal_id = ?)")
+		principalArgs = append(principalArgs, treePolicyPrincipalDept, user.DeptId)
+	}
 	err := common.DB.Table("k8s_tree_policy_user u").
+		Select("u.*").
 		Joins("JOIN k8s_tree_policy p ON p.id = u.policy_id AND p.deleted_at IS NULL").
 		Where("p.status = ?", true).
 		Where("(p.start_time IS NULL OR p.start_time <= ?) AND (p.end_time IS NULL OR p.end_time >= ?)", now, now).
-		Where("(u.principal_type = ? AND u.principal_id = ?) OR (u.principal_type = ? AND u.principal_id = ?)",
-			treePolicyPrincipalUser, user.ID, treePolicyPrincipalRole, user.RoleId).
+		Where(strings.Join(principalWhere, " OR "), principalArgs...).
 		Find(&links).Error
 	if err != nil {
 		return nil, err
@@ -713,6 +1150,19 @@ func matchLabelSelector(selector string, labels map[string]string) bool {
 
 func resourceKey(namespace, name string) string {
 	return namespace + "/" + name
+}
+
+func appendUniqueString(items *[]string, value string) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return
+	}
+	for _, item := range *items {
+		if item == value {
+			return
+		}
+	}
+	*items = append(*items, value)
 }
 
 func ParseTreeNodeID(raw string) uint {

@@ -35,6 +35,10 @@ import (
 func parseTreeAwareDataSelect(c *gin.Context) (*dataselect.DataSelectQuery, bool) {
 	dsQuery := parser.ParseDataSelectPathParameter(c)
 	if c.Query("treeNodeId") == "" {
+		if user := currentUser(c); user != nil && !user.Role.IsSuperAdmin() {
+			dsQuery.PaginationQuery = dataselect.NoPagination
+			return dsQuery, true
+		}
 		return dsQuery, false
 	}
 	dsQuery.PaginationQuery = dataselect.NoPagination

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vue-cli-service serve --mode dev",
     "test": "vue-cli-service serve --mode test",
+    "test:unit": "node tests/unit/serviceTreeBinding.spec.js",
     "buildprod": "vue-cli-service build --mode prod",
     "lint": "vue-cli-service lint"
   },

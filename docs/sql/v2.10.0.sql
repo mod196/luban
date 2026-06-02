@@ -188,6 +188,12 @@ WHERE @service_tree_permission_id IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM `permissions` WHERE `path` = '/api/v1/k8s/service-tree/node' AND `method` = 'POST' AND `deleted_at` IS NULL);
 
 INSERT INTO `permissions` (`created_at`, `updated_at`, `deleted_at`, `pid`, `name`, `sort`, `path`, `method`)
+SELECT NOW(), NOW(), NULL, @service_tree_permission_id, '获取K8s服务树绑定资源', 0, '/api/v1/k8s/service-tree/bindings', 'GET'
+FROM DUAL
+WHERE @service_tree_permission_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM `permissions` WHERE `path` = '/api/v1/k8s/service-tree/bindings' AND `method` = 'GET' AND `deleted_at` IS NULL);
+
+INSERT INTO `permissions` (`created_at`, `updated_at`, `deleted_at`, `pid`, `name`, `sort`, `path`, `method`)
 SELECT NOW(), NOW(), NULL, @service_tree_permission_id, '绑定K8s服务树资源', 0, '/api/v1/k8s/service-tree/bindings', 'POST'
 FROM DUAL
 WHERE @service_tree_permission_id IS NOT NULL
@@ -200,16 +206,40 @@ WHERE @service_tree_permission_id IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM `permissions` WHERE `path` = '/api/v1/k8s/service-tree/unclassified' AND `method` = 'GET' AND `deleted_at` IS NULL);
 
 INSERT INTO `permissions` (`created_at`, `updated_at`, `deleted_at`, `pid`, `name`, `sort`, `path`, `method`)
+SELECT NOW(), NOW(), NULL, @service_tree_permission_id, '获取K8s服务树绑定规则', 0, '/api/v1/k8s/service-tree/binding-rules', 'GET'
+FROM DUAL
+WHERE @service_tree_permission_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM `permissions` WHERE `path` = '/api/v1/k8s/service-tree/binding-rules' AND `method` = 'GET' AND `deleted_at` IS NULL);
+
+INSERT INTO `permissions` (`created_at`, `updated_at`, `deleted_at`, `pid`, `name`, `sort`, `path`, `method`)
 SELECT NOW(), NOW(), NULL, @service_tree_permission_id, '创建K8s服务树绑定规则', 0, '/api/v1/k8s/service-tree/binding-rules', 'POST'
 FROM DUAL
 WHERE @service_tree_permission_id IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM `permissions` WHERE `path` = '/api/v1/k8s/service-tree/binding-rules' AND `method` = 'POST' AND `deleted_at` IS NULL);
 
 INSERT INTO `permissions` (`created_at`, `updated_at`, `deleted_at`, `pid`, `name`, `sort`, `path`, `method`)
+SELECT NOW(), NOW(), NULL, @service_tree_permission_id, '获取K8s服务树授权规则', 0, '/api/v1/k8s/service-tree/policies', 'GET'
+FROM DUAL
+WHERE @service_tree_permission_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM `permissions` WHERE `path` = '/api/v1/k8s/service-tree/policies' AND `method` = 'GET' AND `deleted_at` IS NULL);
+
+INSERT INTO `permissions` (`created_at`, `updated_at`, `deleted_at`, `pid`, `name`, `sort`, `path`, `method`)
 SELECT NOW(), NOW(), NULL, @service_tree_permission_id, '创建K8s服务树授权规则', 0, '/api/v1/k8s/service-tree/policies', 'POST'
 FROM DUAL
 WHERE @service_tree_permission_id IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM `permissions` WHERE `path` = '/api/v1/k8s/service-tree/policies' AND `method` = 'POST' AND `deleted_at` IS NULL);
+
+INSERT INTO `permissions` (`created_at`, `updated_at`, `deleted_at`, `pid`, `name`, `sort`, `path`, `method`)
+SELECT NOW(), NOW(), NULL, @service_tree_permission_id, '查询K8s服务树授权主体', 0, '/api/v1/k8s/service-tree/principals', 'GET'
+FROM DUAL
+WHERE @service_tree_permission_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM `permissions` WHERE `path` = '/api/v1/k8s/service-tree/principals' AND `method` = 'GET' AND `deleted_at` IS NULL);
+
+INSERT INTO `permissions` (`created_at`, `updated_at`, `deleted_at`, `pid`, `name`, `sort`, `path`, `method`)
+SELECT NOW(), NOW(), NULL, @service_tree_permission_id, '查询K8s资源App标签', 0, '/api/v1/k8s/service-tree/app-labels', 'GET'
+FROM DUAL
+WHERE @service_tree_permission_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM `permissions` WHERE `path` = '/api/v1/k8s/service-tree/app-labels' AND `method` = 'GET' AND `deleted_at` IS NULL);
 
 INSERT INTO `permissions` (`created_at`, `updated_at`, `deleted_at`, `pid`, `name`, `sort`, `path`, `method`)
 SELECT NOW(), NOW(), NULL, @service_tree_permission_id, '按服务树获取工作负载', 0, '/api/v1/k8s/workloads', 'GET'
