@@ -10,18 +10,6 @@
           </router-link>
         </a-menu-item>
 
-        <a-sub-menu key="2">
-          <template #icon>
-            <IconFont type="pigs-icon-fuwuqi1"/>
-          </template>
-          <template #title>资产管理</template>
-          <a-menu-item key="/cmdb/server">
-            <router-link :to="{path: '/cmdb/server'}">
-              服务器
-            </router-link>
-          </a-menu-item>
-        </a-sub-menu>
-
         <a-sub-menu key="3">
           <template #icon>
             <IconFont type="pigs-icon-Kubernetes"/>
@@ -66,47 +54,6 @@
           <a-menu-item key="/k8s/event">
             <router-link :to="{path: '/k8s/event'}">
               事件中心
-            </router-link>
-          </a-menu-item>
-        </a-sub-menu>
-
-        <a-sub-menu key="4">
-          <template #icon>
-            <IconFont type="pigs-icon-yunweipeizhiguanli"/>
-          </template>
-          <template #title>作业配置</template>
-
-          <a-menu-item key="/task/execute">
-            <router-link :to="{path: '/task/execute'}">
-              执行任务
-            </router-link>
-          </a-menu-item>
-          <a-menu-item key="/task/template">
-            <router-link :to="{path: '/task/template'}">
-              任务模板
-            </router-link>
-          </a-menu-item>
-        </a-sub-menu>
-
-        <a-sub-menu key="5">
-          <template #icon>
-            <IconFont type="pigs-icon-gengduoyingyong"/>
-          </template>
-          <template #title>应用发布</template>
-
-          <a-menu-item key="/application/apps/manage">
-            <router-link :to="{path: '/application/apps/manage'}">
-              应用管理
-            </router-link>
-          </a-menu-item>
-          <a-menu-item key="/application/environment">
-            <router-link :to="{path: '/application/environment'}">
-              环境管理
-            </router-link>
-          </a-menu-item>
-          <a-menu-item key="/application/apps/deploy/approval">
-            <router-link :to="{path: '/application/apps/deploy/approval'}">
-              发布申请
             </router-link>
           </a-menu-item>
         </a-sub-menu>
@@ -206,7 +153,7 @@ import {
   createFromIconfontCN,
   GithubOutlined,
 } from '@ant-design/icons-vue';
-import {defineComponent, ref} from 'vue';
+import {computed, defineComponent, ref} from 'vue';
 import router from "./router";
 import env from "@/store/env";
 
@@ -227,7 +174,7 @@ export default defineComponent({
         router.push('/user/login')
 
       },
-      title: env.Title,
+      title: computed(() => env.Title),
     };
   },
 

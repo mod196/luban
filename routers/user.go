@@ -35,6 +35,7 @@ func User(r *gin.RouterGroup) {
 		guest.GET("/addr", func(c *gin.Context) {
 			c.String(200, c.Request.RemoteAddr)
 		})
+		guest.GET("/runtime-config", controller.RuntimeConfig)
 	}
 
 	user := r.Group("user")

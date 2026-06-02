@@ -52,6 +52,9 @@ type ConfigStruct struct {
 var Config *ConfigStruct
 
 func NormalizeRuntimeConfig() {
+	if CONFIG.System.PlatformTitle == "" {
+		CONFIG.System.PlatformTitle = "运维平台"
+	}
 	if CONFIG.System.Addr == 0 && CONFIG.HTTP.Listen > 0 {
 		CONFIG.System.Addr = CONFIG.HTTP.Listen
 	}

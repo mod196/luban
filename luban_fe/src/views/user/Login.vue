@@ -2,6 +2,7 @@
     <div class="login_bg">
       <div class="login">
         <h3 style="z-index:1;text-align:center;"><img src="../../assets/luban.svg" width="120" height="80"></h3>
+        <h2 class="login-title">{{ loginTitle }}</h2>
         <a-tabs size="small">
           <a-tab-pane key="1" tab="帐号登录">
               <a-form ref="formRef" :model="formState" :rules="rules" :label-col="labelCol" :wrapper-col="wrapperCol">
@@ -40,7 +41,7 @@
 <script>
 // import { message } from 'ant-design-vue';
 import { UserOutlined, LockOutlined } from '@ant-design/icons-vue';
-import { defineComponent, reactive, ref, inject } from 'vue';
+import { computed, defineComponent, reactive, ref, inject } from 'vue';
 import { useCookie } from 'vue-cookie-next'
 import { login } from '@/api/user'
 import router from "../../router";
@@ -117,7 +118,7 @@ export default defineComponent({
       widthVar: "0px",
 
       enterLogin,
-      loginTitle: env.Title,
+      loginTitle: computed(() => env.Title),
     };
   },
   components: {
@@ -150,12 +151,14 @@ export default defineComponent({
     box-shadow: 0 0 20px #DCDFE6;
 
 }
-/*.login-title {*/
-/*    text-align: center;*/
-/*    margin-bottom: 10px;*/
-/*    position:absolute;*/
-/*    z-index:1*/
-/*}*/
+.login-title {
+    color: #202124;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1.2;
+    margin: 0 0 16px;
+    text-align: center;
+}
 
 .login-form-forgot {
     float: right;

@@ -59,10 +59,12 @@ func Viper(path ...string) *viper.Viper {
 		if err := v.Unmarshal(&common.CONFIG); err != nil {
 			fmt.Println(err)
 		}
+		common.NormalizeRuntimeConfig()
 	})
 
 	if err := v.Unmarshal(&common.CONFIG); err != nil {
 		fmt.Println(err)
 	}
+	common.NormalizeRuntimeConfig()
 	return v
 }

@@ -137,6 +137,12 @@ func UserInfo(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"errcode": 0, "data": gin.H{"user": user}})
 }
 
+func RuntimeConfig(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"platformTitle": common.CONFIG.System.PlatformTitle,
+	})
+}
+
 func ChangePassword(c *gin.Context) {
 	var req ChangePasswordRequest
 	if err := CheckParams(c, &req); err != nil {
