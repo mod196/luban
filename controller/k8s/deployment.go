@@ -32,15 +32,25 @@ import (
 )
 
 func GetDeploymentList(c *gin.Context) {
-	client, err := Init.ClusterID(c)
+	dataSelect, treeFilter := parseTreeAwareDataSelect(c)
+	nsQuery := parser.ParseNamespacePathParameter(c)
+
+	var data *deployment.DeploymentList
+	channels, ok, err := cachedWorkloadChannels(c, nsQuery)
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
 		return
 	}
-	dataSelect, treeFilter := parseTreeAwareDataSelect(c)
-	nsQuery := parser.ParseNamespacePathParameter(c)
-
-	data, err := deployment.GetDeploymentList(client, nsQuery, dataSelect)
+	if ok {
+		data, err = deployment.GetDeploymentListFromChannels(channels, dataSelect)
+	} else {
+		client, clientErr := Init.ClusterID(c)
+		if clientErr != nil {
+			response.FailWithMessage(response.InternalServerError, clientErr.Error(), c)
+			return
+		}
+		data, err = deployment.GetDeploymentList(client, nsQuery, dataSelect)
+	}
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
 		return

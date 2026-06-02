@@ -27,17 +27,25 @@ import (
 )
 
 func GetPodsListController(c *gin.Context) {
+	dataSelect, treeFilter := parseTreeAwareDataSelect(c)
+	nsQuery := parser.ParseNamespacePathParameter(c)
 
-	client, err := Init.ClusterID(c)
+	var data *pods.PodList
+	channels, ok, err := cachedWorkloadChannels(c, nsQuery)
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
 		return
 	}
-
-	dataSelect, treeFilter := parseTreeAwareDataSelect(c)
-	nsQuery := parser.ParseNamespacePathParameter(c)
-
-	data, err := pods.GetPodsList(client, nsQuery, dataSelect)
+	if ok {
+		data, err = pods.GetPodListFromChannels(channels, dataSelect)
+	} else {
+		client, clientErr := Init.ClusterID(c)
+		if clientErr != nil {
+			response.FailWithMessage(response.InternalServerError, clientErr.Error(), c)
+			return
+		}
+		data, err = pods.GetPodsList(client, nsQuery, dataSelect)
+	}
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
 		return

@@ -30,6 +30,7 @@ func InitContainerRouter(r *gin.RouterGroup) {
 		K8sClusterRouter.POST("cluster/delete", k8s.DelK8SCluster)
 		K8sClusterRouter.GET("cluster/detail", k8s.GetK8SClusterDetail)
 		K8sClusterRouter.GET("events", k8s.Events)
+		K8sClusterRouter.GET("cache/status", k8s.GetK8sCacheStatusController)
 
 		K8sClusterRouter.GET("service-tree", k8s.GetServiceTreeController)
 		K8sClusterRouter.POST("service-tree/node", k8s.CreateServiceTreeNodeController)

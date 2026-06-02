@@ -48,6 +48,10 @@ func Viper(path ...string) *viper.Viper {
 
 	v := viper.New()
 	v.SetConfigFile(config)
+	v.SetDefault("k8s-cache.enabled", true)
+	v.SetDefault("k8s-cache.resync-period", "10h")
+	v.SetDefault("k8s-cache.startup-timeout", "30s")
+	v.SetDefault("k8s-cache.fallback-direct", true)
 	err := v.ReadInConfig()
 	if err != nil {
 		panic(fmt.Errorf("Fatal error config file: %s \n", err))

@@ -17,13 +17,25 @@ limitations under the License.
 package services
 
 import (
+	"fmt"
+	"reflect"
+	"strconv"
+	"strings"
+
 	"github.com/dnsjia/luban/common"
 	"github.com/dnsjia/luban/models"
+	k8scache "github.com/dnsjia/luban/pkg/k8s/cache"
+	"go.uber.org/zap"
 )
 
 func CreateK8SCluster(cluster models.K8SCluster) (err error) {
-	err = common.DB.Create(&cluster).Error
-	return
+	if err = common.DB.Create(&cluster).Error; err != nil {
+		return err
+	}
+	if startErr := k8scache.Global.StartCluster(cluster); startErr != nil && common.LOG != nil {
+		common.LOG.Error("启动 k8s informer cache 失败", zap.Uint("clusterId", cluster.ID), zap.Any("err", startErr))
+	}
+	return nil
 }
 
 func ListK8SCluster(p *models.PaginationQ, k *[]models.K8SCluster) (err error) {
@@ -80,6 +92,53 @@ func DelCluster(ids models.ClusterIds) (err error) {
 	if err2.Error != nil {
 		return err2.Error
 	}
+	for _, clusterID := range clusterIDsFromPayload(ids.Data) {
+		k8scache.Global.StopCluster(clusterID)
+	}
 	return nil
 
+}
+
+func clusterIDsFromPayload(data interface{}) []string {
+	items := make([]string, 0)
+	var appendID func(interface{})
+	appendID = func(value interface{}) {
+		switch v := value.(type) {
+		case nil:
+			return
+		case string:
+			if id := strings.TrimSpace(v); id != "" {
+				items = append(items, id)
+			}
+		case float64:
+			items = append(items, strconv.FormatUint(uint64(v), 10))
+		case float32:
+			items = append(items, strconv.FormatUint(uint64(v), 10))
+		case int:
+			items = append(items, strconv.Itoa(v))
+		case int64:
+			items = append(items, strconv.FormatInt(v, 10))
+		case int32:
+			items = append(items, strconv.FormatInt(int64(v), 10))
+		case uint:
+			items = append(items, strconv.FormatUint(uint64(v), 10))
+		case uint64:
+			items = append(items, strconv.FormatUint(v, 10))
+		case uint32:
+			items = append(items, strconv.FormatUint(uint64(v), 10))
+		default:
+			rv := reflect.ValueOf(value)
+			if rv.IsValid() && (rv.Kind() == reflect.Slice || rv.Kind() == reflect.Array) {
+				for i := 0; i < rv.Len(); i++ {
+					appendID(rv.Index(i).Interface())
+				}
+				return
+			}
+			if id := strings.TrimSpace(fmt.Sprintf("%v", value)); id != "" {
+				items = append(items, id)
+			}
+		}
+	}
+	appendID(data)
+	return items
 }

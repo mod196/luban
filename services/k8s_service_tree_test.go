@@ -130,3 +130,30 @@ func TestListK8sAppLabelOptions(t *testing.T) {
 		t.Fatalf("expected three app labels across all supported kinds, got %d", len(allOptions))
 	}
 }
+
+func TestInventoryAppLabelKinds(t *testing.T) {
+	cases := map[string]string{
+		"Deployment":   "deployment",
+		"deployments":  "deployment",
+		"StatefulSets": "statefulset",
+		"cronjobs":     "cronjob",
+		"Pods":         "pod",
+		"services":     "service",
+		"ingresses":    "ingress",
+	}
+	for input, expected := range cases {
+		kinds, err := inventoryAppLabelKinds(input)
+		if err != nil {
+			t.Fatalf("expected kind %q to be supported, got error: %v", input, err)
+		}
+		if len(kinds) != 1 || kinds[0] != expected {
+			t.Fatalf("expected %q to normalize to %q, got %#v", input, expected, kinds)
+		}
+	}
+	if kinds, err := inventoryAppLabelKinds(""); err != nil || kinds != nil {
+		t.Fatalf("expected empty kind to mean all kinds, got %#v err=%v", kinds, err)
+	}
+	if _, err := inventoryAppLabelKinds("secret"); err == nil {
+		t.Fatal("secret should not be supported by app label discovery")
+	}
+}

@@ -27,15 +27,25 @@ import (
 )
 
 func GetCronJobListController(c *gin.Context) {
-	client, err := Init.ClusterID(c)
+	dataSelect, treeFilter := parseTreeAwareDataSelect(c)
+	nsQuery := parser.ParseNamespacePathParameter(c)
+
+	var data *cronjob.CronJobList
+	channels, ok, err := cachedWorkloadChannels(c, nsQuery)
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
 		return
 	}
-	dataSelect, treeFilter := parseTreeAwareDataSelect(c)
-	nsQuery := parser.ParseNamespacePathParameter(c)
-
-	data, err := cronjob.GetCronJobList(client, nsQuery, dataSelect)
+	if ok {
+		data, err = cronjob.GetCronJobListFromChannels(channels, dataSelect)
+	} else {
+		client, clientErr := Init.ClusterID(c)
+		if clientErr != nil {
+			response.FailWithMessage(response.InternalServerError, clientErr.Error(), c)
+			return
+		}
+		data, err = cronjob.GetCronJobList(client, nsQuery, dataSelect)
+	}
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
 		return

@@ -23,6 +23,7 @@ import (
 	"github.com/dnsjia/luban/controller/response"
 	"github.com/dnsjia/luban/models"
 	"github.com/dnsjia/luban/pkg/k8s/Init"
+	k8scache "github.com/dnsjia/luban/pkg/k8s/cache"
 	"github.com/dnsjia/luban/services"
 	"github.com/gin-gonic/gin"
 )
@@ -169,17 +170,27 @@ func GetServiceTreePrincipalsController(c *gin.Context) {
 }
 
 func GetServiceTreeAppLabelsController(c *gin.Context) {
+	data, err := services.ListK8sAppLabelOptionsFromInventory(c.DefaultQuery("clusterId", "1"), c.Query("namespace"), c.Query("kind"))
+	if err == nil && len(data) > 0 {
+		response.OkWithData(data, c)
+		return
+	}
+
 	client, err := Init.ClusterID(c)
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
 		return
 	}
-	data, err := services.ListK8sAppLabelOptions(client, c.Query("namespace"), c.Query("kind"))
+	data, err = services.ListK8sAppLabelOptions(client, c.Query("namespace"), c.Query("kind"))
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
 		return
 	}
 	response.OkWithData(data, c)
+}
+
+func GetK8sCacheStatusController(c *gin.Context) {
+	response.OkWithData(k8scache.Global.Status(c.Query("clusterId")), c)
 }
 
 func currentUser(c *gin.Context) *models.User {

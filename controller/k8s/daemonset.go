@@ -28,15 +28,25 @@ import (
 )
 
 func GetDaemonSetListController(c *gin.Context) {
-	client, err := Init.ClusterID(c)
+	dataSelect, treeFilter := parseTreeAwareDataSelect(c)
+	nsQuery := parser.ParseNamespacePathParameter(c)
+
+	var data *daemonset.DaemonSetList
+	channels, ok, err := cachedWorkloadChannels(c, nsQuery)
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
 		return
 	}
-	dataSelect, treeFilter := parseTreeAwareDataSelect(c)
-	nsQuery := parser.ParseNamespacePathParameter(c)
-
-	data, err := daemonset.GetDaemonSetList(client, nsQuery, dataSelect)
+	if ok {
+		data, err = daemonset.GetDaemonSetListFromChannels(channels, dataSelect)
+	} else {
+		client, clientErr := Init.ClusterID(c)
+		if clientErr != nil {
+			response.FailWithMessage(response.InternalServerError, clientErr.Error(), c)
+			return
+		}
+		data, err = daemonset.GetDaemonSetList(client, nsQuery, dataSelect)
+	}
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
 		return

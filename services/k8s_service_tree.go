@@ -18,6 +18,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -29,6 +30,8 @@ import (
 	"github.com/dnsjia/luban/common"
 	"github.com/dnsjia/luban/models"
 	k8smodel "github.com/dnsjia/luban/models/k8s"
+	k8scache "github.com/dnsjia/luban/pkg/k8s/cache"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -257,9 +260,16 @@ func UpsertK8sServiceTreeBinding(req ServiceTreeBindingRequest) error {
 		Status:     true,
 		CreatedBy:  strings.TrimSpace(req.CreatedBy),
 	}
+	var inventory k8smodel.ResourceInventory
+	err := common.DB.Where("cluster_id = ? AND uid = ?", binding.ClusterID, binding.UID).First(&inventory).Error
+	if err == nil {
+		binding.InventoryID = inventory.ID
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
 
 	var existing k8smodel.ServiceTreeBinding
-	err := common.DB.Where("cluster_id = ? AND uid = ?", binding.ClusterID, binding.UID).First(&existing).Error
+	err = common.DB.Where("cluster_id = ? AND uid = ?", binding.ClusterID, binding.UID).First(&existing).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return common.DB.Create(&binding).Error
 	}
@@ -267,13 +277,14 @@ func UpsertK8sServiceTreeBinding(req ServiceTreeBindingRequest) error {
 		return err
 	}
 	return common.DB.Model(&existing).Updates(map[string]interface{}{
-		"node_id":     binding.NodeID,
-		"namespace":   binding.Namespace,
-		"kind":        binding.Kind,
-		"name":        binding.Name,
-		"bind_source": binding.BindSource,
-		"status":      true,
-		"created_by":  binding.CreatedBy,
+		"node_id":      binding.NodeID,
+		"namespace":    binding.Namespace,
+		"kind":         binding.Kind,
+		"name":         binding.Name,
+		"inventory_id": binding.InventoryID,
+		"bind_source":  binding.BindSource,
+		"status":       true,
+		"created_by":   binding.CreatedBy,
 	}).Error
 }
 
@@ -304,6 +315,9 @@ func CreateK8sServiceTreeBindingRule(req ServiceTreeBindingRuleRequest) (*k8smod
 	}
 	if err := common.DB.Create(rule).Error; err != nil {
 		return nil, err
+	}
+	if err := k8scache.ApplyBindingRules(rule.ClusterID, rule.Namespace, rule.Kind); err != nil && common.LOG != nil {
+		common.LOG.Error("应用 k8s 服务树绑定规则失败", zap.Uint("ruleId", rule.ID), zap.Any("err", err))
 	}
 	return rule, nil
 }
@@ -765,6 +779,103 @@ func ListK8sAppLabelOptions(client kubernetes.Interface, namespace, kind string)
 		return result[i].ResourceCount > result[j].ResourceCount
 	})
 	return result, nil
+}
+
+func ListK8sAppLabelOptionsFromInventory(clusterID, namespace, kind string) ([]K8sAppLabelOption, error) {
+	clusterID = strings.TrimSpace(clusterID)
+	namespace = strings.TrimSpace(namespace)
+	kinds, err := inventoryAppLabelKinds(kind)
+	if err != nil {
+		return nil, err
+	}
+
+	var items []k8smodel.ResourceInventory
+	query := common.DB.Where("deleted_at IS NULL")
+	if clusterID != "" {
+		query = query.Where("cluster_id = ?", clusterID)
+	}
+	if namespace != "" {
+		query = query.Where("namespace = ?", namespace)
+	}
+	if len(kinds) > 0 {
+		query = query.Where("kind IN ?", kinds)
+	} else {
+		query = query.Where("kind IN ?", supportedInventoryAppLabelKinds())
+	}
+	if err := query.Find(&items).Error; err != nil {
+		return nil, err
+	}
+
+	options := map[string]*K8sAppLabelOption{}
+	for _, item := range items {
+		labels := map[string]string{}
+		if item.Labels != "" {
+			_ = json.Unmarshal([]byte(item.Labels), &labels)
+		}
+		value := strings.TrimSpace(labels["app"])
+		if value == "" {
+			continue
+		}
+		option, ok := options[value]
+		if !ok {
+			option = &K8sAppLabelOption{
+				LabelKey:      "app",
+				LabelValue:    value,
+				LabelSelector: "app=" + value,
+			}
+			options[value] = option
+		}
+		option.ResourceCount++
+		appendUniqueString(&option.Namespaces, item.Namespace)
+		appendUniqueString(&option.Kinds, normalizeKind(item.Kind))
+		appendUniqueString(&option.Resources, item.Namespace+"/"+normalizeKind(item.Kind)+"/"+item.Name)
+	}
+
+	result := make([]K8sAppLabelOption, 0, len(options))
+	for _, item := range options {
+		sort.Strings(item.Namespaces)
+		sort.Strings(item.Kinds)
+		sort.Strings(item.Resources)
+		result = append(result, *item)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].ResourceCount == result[j].ResourceCount {
+			return result[i].LabelValue < result[j].LabelValue
+		}
+		return result[i].ResourceCount > result[j].ResourceCount
+	})
+	return result, nil
+}
+
+func inventoryAppLabelKinds(kind string) ([]string, error) {
+	kind = normalizeKind(kind)
+	if kind == "" || kind == "all" {
+		return nil, nil
+	}
+	switch kind {
+	case "deployment", "deployments":
+		return []string{"deployment"}, nil
+	case "statefulset", "statefulsets":
+		return []string{"statefulset"}, nil
+	case "daemonset", "daemonsets":
+		return []string{"daemonset"}, nil
+	case "job", "jobs":
+		return []string{"job"}, nil
+	case "cronjob", "cronjobs":
+		return []string{"cronjob"}, nil
+	case "pod", "pods":
+		return []string{"pod"}, nil
+	case "service", "services":
+		return []string{"service"}, nil
+	case "ingress", "ingresses":
+		return []string{"ingress"}, nil
+	default:
+		return nil, fmt.Errorf("unsupported resource kind: %s", kind)
+	}
+}
+
+func supportedInventoryAppLabelKinds() []string {
+	return []string{"deployment", "statefulset", "daemonset", "job", "cronjob", "pod", "service", "ingress"}
 }
 
 func BuildWorkloadResourceFilter(user *models.User, clusterID string, treeNodeID uint, kind string) (*WorkloadResourceFilter, error) {

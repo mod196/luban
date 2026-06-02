@@ -56,12 +56,12 @@ func (ServiceTreeNode) TableName() string {
 
 type ResourceInventory struct {
 	models.GModel
-	ClusterID       string           `gorm:"column:cluster_id;size:191;not null;comment:'集群ID'" json:"clusterId"`
+	ClusterID       string           `gorm:"column:cluster_id;size:191;not null;uniqueIndex:idx_k8s_resource_inventory_cluster_uid;comment:'集群ID'" json:"clusterId"`
 	Namespace       string           `gorm:"column:namespace;size:128;not null;comment:'命名空间'" json:"namespace"`
 	APIVersion      string           `gorm:"column:api_version;size:64;comment:'K8s API版本'" json:"apiVersion"`
 	Kind            string           `gorm:"column:kind;size:64;not null;comment:'资源类型'" json:"kind"`
 	Name            string           `gorm:"column:name;size:191;not null;comment:'资源名称'" json:"name"`
-	UID             string           `gorm:"column:uid;size:191;not null;comment:'K8s UID'" json:"uid"`
+	UID             string           `gorm:"column:uid;size:191;not null;uniqueIndex:idx_k8s_resource_inventory_cluster_uid;comment:'K8s UID'" json:"uid"`
 	Labels          string           `gorm:"column:labels;type:json;comment:'标签JSON'" json:"labels"`
 	Annotations     string           `gorm:"column:annotations;type:json;comment:'注解JSON'" json:"annotations"`
 	OwnerRefs       string           `gorm:"column:owner_refs;type:json;comment:'OwnerReferences JSON'" json:"ownerRefs"`

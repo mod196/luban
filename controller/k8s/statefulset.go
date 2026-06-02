@@ -28,15 +28,25 @@ import (
 )
 
 func GetStatefulSetListController(c *gin.Context) {
-	client, err := Init.ClusterID(c)
+	dataSelect, treeFilter := parseTreeAwareDataSelect(c)
+	nsQuery := parser.ParseNamespacePathParameter(c)
+
+	var data *statefulset.StatefulSetList
+	channels, ok, err := cachedWorkloadChannels(c, nsQuery)
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
 		return
 	}
-	dataSelect, treeFilter := parseTreeAwareDataSelect(c)
-	nsQuery := parser.ParseNamespacePathParameter(c)
-
-	data, err := statefulset.GetStatefulSetList(client, nsQuery, dataSelect)
+	if ok {
+		data, err = statefulset.GetStatefulSetListFromChannels(channels, dataSelect)
+	} else {
+		client, clientErr := Init.ClusterID(c)
+		if clientErr != nil {
+			response.FailWithMessage(response.InternalServerError, clientErr.Error(), c)
+			return
+		}
+		data, err = statefulset.GetStatefulSetList(client, nsQuery, dataSelect)
+	}
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
 		return

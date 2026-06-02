@@ -23,6 +23,7 @@ import (
 	phttp "github.com/dnsjia/luban/http"
 	"github.com/dnsjia/luban/middleware"
 	"github.com/dnsjia/luban/models"
+	k8scache "github.com/dnsjia/luban/pkg/k8s/cache"
 	"github.com/dnsjia/luban/routers"
 	"github.com/dnsjia/luban/routers/cmdb"
 	"github.com/dnsjia/luban/tools"
@@ -56,6 +57,10 @@ func main() {
 	parseConf()
 	models.InitLdap(common.Config.LDAP)
 	models.InitError()
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	k8scache.Global.Start(ctx)
+	defer k8scache.Global.StopAll()
+	go endingProc(cancelFunc)
 	InitServer()
 }
 
@@ -114,10 +119,6 @@ func InitServer() {
 	if err != nil {
 		panic(fmt.Sprintf("start server err: %v", err))
 	}
-
-	_, cancelFunc := context.WithCancel(context.Background())
-	endingProc(cancelFunc)
-
 }
 
 func parseConf() {

@@ -36,6 +36,11 @@ system:
   rpc: 40737
   db-type: 'mysql'
 
+k8s-cache:
+  enabled: true
+  resync-period: '10h'
+  startup-timeout: '30s'
+  fallback-direct: true
 
 redis:
   addr: '127.0.0.1:6379'

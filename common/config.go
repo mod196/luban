@@ -26,18 +26,26 @@ import (
 )
 
 type Server struct {
-	Zap     Zap           `mapstructure:"zap"    json:"zap" yaml:"zap"`
-	Mysql   Mysql         `mapstructure:"mysql"  json:"mysql" yaml:"mysql"`
-	Casbin  models.Casbin `mapstructure:"casbin" json:"casbin" yaml:"casbin"`
-	System  System        `mapstructure:"system" json:"system" yaml:"system"`
-	HTTP    HTTP          `mapstructure:"http"   json:"http" yaml:"http"`
-	Redis   Redis         `mapstructure:"redis"  json:"redis" yaml:"redis"`
-	Crontab Crontab       `mapstructure:"crontab" json:"crontab" yaml:"crontab"`
+	Zap      Zap           `mapstructure:"zap"    json:"zap" yaml:"zap"`
+	Mysql    Mysql         `mapstructure:"mysql"  json:"mysql" yaml:"mysql"`
+	Casbin   models.Casbin `mapstructure:"casbin" json:"casbin" yaml:"casbin"`
+	System   System        `mapstructure:"system" json:"system" yaml:"system"`
+	K8sCache K8sCache      `mapstructure:"k8s-cache" json:"k8sCache" yaml:"k8s-cache"`
+	HTTP     HTTP          `mapstructure:"http"   json:"http" yaml:"http"`
+	Redis    Redis         `mapstructure:"redis"  json:"redis" yaml:"redis"`
+	Crontab  Crontab       `mapstructure:"crontab" json:"crontab" yaml:"crontab"`
 }
 
 type HTTP struct {
 	Mode   string `mapstructure:"mode" json:"mode" yaml:"mode"`
 	Listen int    `mapstructure:"listen" json:"listen" yaml:"listen"`
+}
+
+type K8sCache struct {
+	Enabled        bool   `mapstructure:"enabled" json:"enabled" yaml:"enabled"`
+	ResyncPeriod   string `mapstructure:"resync-period" json:"resyncPeriod" yaml:"resync-period"`
+	StartupTimeout string `mapstructure:"startup-timeout" json:"startupTimeout" yaml:"startup-timeout"`
+	FallbackDirect bool   `mapstructure:"fallback-direct" json:"fallbackDirect" yaml:"fallback-direct"`
 }
 
 type contactKey struct {
@@ -72,6 +80,12 @@ func NormalizeRuntimeConfig() {
 	}
 	if CONFIG.Casbin.ModelPath == "" {
 		CONFIG.Casbin.ModelPath = "./etc/rbac_model.conf"
+	}
+	if CONFIG.K8sCache.ResyncPeriod == "" {
+		CONFIG.K8sCache.ResyncPeriod = "10h"
+	}
+	if CONFIG.K8sCache.StartupTimeout == "" {
+		CONFIG.K8sCache.StartupTimeout = "30s"
 	}
 }
 
