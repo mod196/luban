@@ -42,9 +42,19 @@ func CasBinHandler() gin.HandlerFunc {
 				return
 			}
 		}
-		e := services.Casbin()
+		e, err := services.Casbin()
+		if err != nil {
+			response.FailWithMessage(response.InternalServerError, "权限服务初始化失败: "+err.Error(), c)
+			c.Abort()
+			return
+		}
 		// 判断策略中是否存在
-		success, _ := e.Enforce(sub, obj, act)
+		success, err := e.Enforce(sub, obj, act)
+		if err != nil {
+			response.FailWithMessage(response.InternalServerError, "权限校验失败: "+err.Error(), c)
+			c.Abort()
+			return
+		}
 		common.LOG.Debug(fmt.Sprintf("用户：%v, 权限校验：%v", waitUse.Username, success))
 		if common.CONFIG.System.Env == "develop" || success {
 			c.Next()

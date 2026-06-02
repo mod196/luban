@@ -39,8 +39,12 @@ func AddCasBin(c *gin.Context) {
 		response.FailWithMessage(response.ParamError, "", c)
 		return
 	}
-	e := services.Casbin()
-	err = e.LoadPolicy()
+	e, err := services.Casbin()
+	if err != nil {
+		response.FailWithMessage(response.InternalServerError, err.Error(), c)
+		return
+	}
+	err = services.ReloadCasbinPolicy()
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
 		return
@@ -64,7 +68,11 @@ func AddCasBin(c *gin.Context) {
 }
 
 func DeleteCasBin(c *gin.Context) {
-	e := services.Casbin()
+	e, err := services.Casbin()
+	if err != nil {
+		response.FailWithMessage(response.InternalServerError, err.Error(), c)
+		return
+	}
 	group := ""
 	url := ""
 	method := ""
@@ -78,7 +86,11 @@ func DeleteCasBin(c *gin.Context) {
 }
 
 func GetCasBin(c *gin.Context) {
-	e := services.Casbin()
+	e, err := services.Casbin()
+	if err != nil {
+		response.FailWithMessage(response.InternalServerError, err.Error(), c)
+		return
+	}
 	data := e.GetPolicy()
 	response.OkWithData(data, c)
 	return

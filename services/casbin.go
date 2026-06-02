@@ -23,15 +23,45 @@ import (
 	"github.com/dnsjia/luban/common"
 	_ "github.com/go-sql-driver/mysql"
 	"strings"
+	"sync"
 )
 
-func Casbin() *casbin.Enforcer {
+var (
+	casbinMu       sync.Mutex
+	casbinEnforcer *casbin.SyncedEnforcer
+)
+
+func Casbin() (*casbin.SyncedEnforcer, error) {
+	casbinMu.Lock()
+	defer casbinMu.Unlock()
+
+	if casbinEnforcer != nil {
+		return casbinEnforcer, nil
+	}
+
 	admin := common.CONFIG.Mysql
-	a, _ := gormAdapter.NewAdapter(common.CONFIG.System.DbType, admin.Username+":"+admin.Password+"@("+admin.Path+")/"+admin.Dbname, true)
-	e, _ := casbin.NewEnforcer(common.CONFIG.Casbin.ModelPath, a)
+	a, err := gormAdapter.NewAdapter(common.CONFIG.System.DbType, admin.Username+":"+admin.Password+"@("+admin.Path+")/"+admin.Dbname, true)
+	if err != nil {
+		return nil, err
+	}
+	e, err := casbin.NewSyncedEnforcer(common.CONFIG.Casbin.ModelPath, a)
+	if err != nil {
+		return nil, err
+	}
 	e.AddFunction("ParamsMatch", ParamsMatchFunc)
-	_ = e.LoadPolicy()
-	return e
+	if err := e.LoadPolicy(); err != nil {
+		return nil, err
+	}
+	casbinEnforcer = e
+	return casbinEnforcer, nil
+}
+
+func ReloadCasbinPolicy() error {
+	e, err := Casbin()
+	if err != nil {
+		return err
+	}
+	return e.LoadPolicy()
 }
 
 func ParamsMatch(fullNameKey1 string, key2 string) bool {
