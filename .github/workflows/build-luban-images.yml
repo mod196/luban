@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/k8s-service-tree-rbac
+      - feature/runtime-platform-title-menu-cleanup
     paths:
       - ".github/workflows/build-luban-images.yml"
       - ".dockerignore"

@@ -9,7 +9,11 @@ RUN apk add --no-cache git ca-certificates
 
 COPY go.mod go.sum ./
 RUN go env -w GOPROXY=https://goproxy.cn,direct \
-    && go mod download
+    && for i in 1 2 3; do \
+        go mod download && break; \
+        if [ "$i" = "3" ]; then exit 1; fi; \
+        sleep 5; \
+    done
 
 COPY . .
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /out/luban .
