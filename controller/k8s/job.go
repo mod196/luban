@@ -69,6 +69,9 @@ func DeleteJobController(c *gin.Context) {
 	}
 	namespace := parser.ParseNamespaceParameter(c)
 	name := parser.ParseNameParameter(c)
+	if !authorizeK8sJob(c, namespace, name, k8s.ServiceTreeActionDelete) {
+		return
+	}
 
 	err = job.DeleteJob(client, namespace, name)
 	if err != nil {
@@ -93,6 +96,11 @@ func DeleteCollectionJobController(c *gin.Context) {
 		response.FailWithMessage(response.ParamError, err.Error(), c)
 		return
 	}
+	for _, item := range jobList {
+		if !authorizeK8sJob(c, item.Namespace, item.Name, k8s.ServiceTreeActionDelete) {
+			return
+		}
+	}
 
 	err = job.DeleteCollectionJob(client, jobList)
 	if err != nil {
@@ -116,6 +124,9 @@ func ScaleJobController(c *gin.Context) {
 		response.FailWithMessage(response.ParamError, err.Error(), c)
 		return
 	}
+	if !authorizeK8sJob(c, scaleData.Namespace, scaleData.Name, k8s.ServiceTreeActionScale) {
+		return
+	}
 
 	err = job.ScaleJob(client, scaleData.Namespace, scaleData.Name, scaleData.Number)
 	if err != nil {
@@ -137,6 +148,9 @@ func DetailJobController(c *gin.Context) {
 
 	namespace := parser.ParseNamespaceParameter(c)
 	name := parser.ParseNameParameter(c)
+	if !authorizeK8sJob(c, namespace, name, k8s.ServiceTreeActionView) {
+		return
+	}
 
 	result, err := job.GetJobDetail(client, namespace, name)
 	if err != nil {

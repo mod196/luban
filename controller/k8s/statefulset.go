@@ -75,6 +75,11 @@ func DeleteCollectionStatefulSetController(c *gin.Context) {
 		response.FailWithMessage(http.StatusNotFound, err.Error(), c)
 		return
 	}
+	for _, item := range statefulSetList {
+		if !authorizeK8sStatefulSet(c, item.Namespace, item.Name, k8s.ServiceTreeActionDelete) {
+			return
+		}
+	}
 
 	err = statefulset.DeleteCollectionStatefulSet(client, statefulSetList)
 	if err != nil {
@@ -94,6 +99,9 @@ func DeleteStatefulSetController(c *gin.Context) {
 	}
 	namespace := parser.ParseNamespaceParameter(c)
 	name := parser.ParseNameParameter(c)
+	if !authorizeK8sStatefulSet(c, namespace, name, k8s.ServiceTreeActionDelete) {
+		return
+	}
 
 	err = statefulset.DeleteStatefulSet(client, namespace, name)
 	if err != nil {
@@ -115,6 +123,9 @@ func RestartStatefulSetController(c *gin.Context) {
 	err2 := controller.CheckParams(c, &statefulSetData)
 	if err2 != nil {
 		response.FailWithMessage(response.ParamError, err2.Error(), c)
+		return
+	}
+	if !authorizeK8sStatefulSet(c, statefulSetData.Namespace, statefulSetData.Name, k8s.ServiceTreeActionRestart) {
 		return
 	}
 	err3 := statefulset.RestartStatefulSet(client, statefulSetData.Name, statefulSetData.Namespace)
@@ -139,6 +150,9 @@ func ScaleStatefulSetController(c *gin.Context) {
 		response.FailWithMessage(response.ParamError, err2.Error(), c)
 		return
 	}
+	if !authorizeK8sStatefulSet(c, scaleData.Namespace, scaleData.Name, k8s.ServiceTreeActionScale) {
+		return
+	}
 
 	err = statefulset.ScaleStatefulSet(client, scaleData.Namespace, scaleData.Name, *scaleData.ScaleNumber)
 	if err != nil {
@@ -159,6 +173,9 @@ func DetailStatefulSetController(c *gin.Context) {
 	namespace := parser.ParseNamespaceParameter(c)
 	name := parser.ParseNameParameter(c)
 	dataSelect := parser.ParseDataSelectPathParameter(c)
+	if !authorizeK8sStatefulSet(c, namespace, name, k8s.ServiceTreeActionView) {
+		return
+	}
 
 	data, err := statefulset.GetStatefulSetDetail(client, dataSelect, namespace, name)
 

@@ -18,6 +18,7 @@ package k8s
 
 import (
 	"github.com/dnsjia/luban/controller/response"
+	k8smodel "github.com/dnsjia/luban/models/k8s"
 	"github.com/dnsjia/luban/pkg/k8s/Init"
 	"github.com/dnsjia/luban/pkg/k8s/logs"
 	"github.com/dnsjia/luban/pkg/k8s/pods"
@@ -36,6 +37,13 @@ func GetLogSourcesController(c *gin.Context) {
 	resourceName := c.Param("resourceName")
 	resourceType := c.Param("resourceType")
 	namespace := c.Param("namespace")
+	if resourceType == k8smodel.ResourceKindPod || resourceType == "pods" {
+		if !authorizeK8sPodAction(c, client, namespace, resourceName, k8smodel.ServiceTreeActionLog) {
+			return
+		}
+	} else if !authorizeK8sResourceAction(c, namespace, resourceType, resourceName, k8smodel.ServiceTreeActionLog) {
+		return
+	}
 	logSources, err := logs.GetLogSources(client, namespace, resourceName, resourceType)
 
 	if err != nil {
@@ -56,6 +64,9 @@ func GetLogDetailController(c *gin.Context) {
 	namespace := c.Param("namespace")
 	podID := c.Param("pod")
 	containerID := c.Param("container")
+	if !authorizeK8sPodAction(c, client, namespace, podID, k8smodel.ServiceTreeActionLog) {
+		return
+	}
 
 	refTimestamp := c.Query("referenceTimestamp")
 	if refTimestamp == "" {
@@ -104,6 +115,9 @@ func GetLogFileController(c *gin.Context) {
 	namespace := c.Param("namespace")
 	podID := c.Param("pod")
 	containerID := c.Param("container")
+	if !authorizeK8sPodAction(c, client, namespace, podID, k8smodel.ServiceTreeActionLog) {
+		return
+	}
 	opts.Previous = c.Query("previous") == "true"
 	opts.Timestamps = c.Query("timestamps") == "true"
 

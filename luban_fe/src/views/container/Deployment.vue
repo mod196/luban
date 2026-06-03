@@ -77,7 +77,8 @@
           <a @click="deploymentDetail(text)">详情</a>
           <a-divider type="vertical"/>
 
-          <a-popconfirm placement="left" ok-text="确定" cancel-text="取消" @confirm="RestartDeployment(text)">
+          <a-divider v-if="canAction(text, 'deployment', 'restart')" type="vertical"/>
+          <a-popconfirm v-if="canAction(text, 'deployment', 'restart')" placement="left" ok-text="确定" cancel-text="取消" @confirm="RestartDeployment(text)">
             <template #title>
               <span>你确定要重启应用吗？</span><br/>
               <span>{{ text.objectMeta.name }}</span>
@@ -85,17 +86,17 @@
             <a>重启</a>
           </a-popconfirm>
 
-          <a-divider type="vertical"/>
-          <a @click="scaleDeployment(text)">扩缩容</a>
-          <a-divider type="vertical"/>
-          <a-dropdown :trigger="['click']">
+          <a-divider v-if="canAction(text, 'deployment', 'scale')" type="vertical"/>
+          <a v-if="canAction(text, 'deployment', 'scale')" @click="scaleDeployment(text)">扩缩容</a>
+          <a-divider v-if="canAction(text, 'deployment', 'yaml_edit') || canAction(text, 'deployment', 'delete')" type="vertical"/>
+          <a-dropdown v-if="canAction(text, 'deployment', 'yaml_edit') || canAction(text, 'deployment', 'delete')" :trigger="['click']">
             <a class="ant-dropdown-link" @click.prevent>
               更多
               <DownOutlined/>
             </a>
             <template #overlay>
               <a-menu>
-                <a-menu-item>
+                <a-menu-item v-if="canAction(text, 'deployment', 'yaml_edit')">
                   <a-popconfirm placement="left" ok-text="确定" cancel-text="取消" @confirm="rollbackVersion(text)">
                     <template #title>
                       <span>你确定要回退到上一个版本吗？</span><br/>
@@ -105,8 +106,8 @@
                   </a-popconfirm>
 
                 </a-menu-item>
-                <a-menu-item><span @click="editDeployment(text)">编辑应用</span></a-menu-item>
-                <a-menu-item><span @click="removeOneDeployment(text)" style="color: red">删除应用</span></a-menu-item>
+                <a-menu-item v-if="canAction(text, 'deployment', 'yaml_edit')"><span @click="editDeployment(text)">编辑应用</span></a-menu-item>
+                <a-menu-item v-if="canAction(text, 'deployment', 'delete')"><span @click="removeOneDeployment(text)" style="color: red">删除应用</span></a-menu-item>
               </a-menu>
             </template>
           </a-dropdown>
@@ -117,7 +118,7 @@
 
     <div style="float:left;padding: 10px 0 0 20px">
       <a-space>
-        <a-button :disabled="!hasSelected" @click="CollectionRemoveDeployment">批量删除</a-button>
+        <a-button :disabled="!canDeleteSelected" @click="CollectionRemoveDeployment">批量删除</a-button>
       </a-space>
     </div>
 
@@ -223,6 +224,7 @@ import {
 import {SyncOutlined} from '@ant-design/icons-vue';
 import router from "../../router";
 import {GetStorage} from "../../plugin/state/stroge";
+import {canK8sRowAction, canK8sRowsAction} from "../../plugin/utils/k8sActionAuth";
 
 const columns = [
   {
@@ -346,6 +348,8 @@ export default {
     }
 
     const hasSelected = computed(() => state.selectedRowKeys.length > 0);
+    const canAction = (text, kind, action) => canK8sRowAction(serviceTreeContext, text, kind, action)
+    const canDeleteSelected = computed(() => hasSelected.value && canK8sRowsAction(serviceTreeContext, data.selectedRows, "deployment", "delete"));
 
     const onSelectChange = (selectedRowKeys, selectedRows) => {
       state.selectedRowKeys = selectedRowKeys;
@@ -567,6 +571,8 @@ export default {
       columns,
       GetNamespaceList,
       hasSelected,
+      canAction,
+      canDeleteSelected,
       onSelectChange,
       filterByNamespaceOnDeployment,
       getDeploymentList,

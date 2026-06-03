@@ -1,6 +1,9 @@
 <template>
-  <div style="background-color: #FFFFFF">
-    <a-page-header style="border: 1px solid rgb(235, 237, 240)" :title="data.PodData.objectMeta.name" @back="() => $router.go(-1)" v-if="data.PodData.objectMeta">
+  <div class="pod-detail-page">
+    <a-page-header class="pod-detail-card" :title="data.PodData.objectMeta.name" :backIcon="false" v-if="data.PodData.objectMeta">
+      <template #extra>
+        <a-button @click="goReturnTarget">{{ returnButtonLabel }}</a-button>
+      </template>
       <!--      <template>-->
       <div class="console-sub-title custom-sub-title top-sub clearfix">
         <div class="pull-left">
@@ -631,19 +634,29 @@ const podEventsColumns = [
   },
 ]
 
-import {inject, onMounted, reactive} from "vue";
-import {useRoute} from "vue-router";
+import {computed, inject, nextTick, onMounted, onUnmounted, reactive, watch} from "vue";
+import {useRoute, useRouter} from "vue-router";
 import {PodDetail} from "../../api/k8s";
+
+const podDetailTabs = ["1", "2", "3", "4", "5", "6"]
+
+const normalizePodDetailTab = (value) => {
+  const tab = value === undefined || value === null ? "" : String(value)
+  return podDetailTabs.includes(tab) ? tab : "1"
+}
 
 
 export default {
   name: "PodDetail",
   setup(){
     const message = inject('$message');
-    let router = useRoute()
+    const route = useRoute()
+    const router = useRouter()
+    let podDetailAlive = true
+    let podDetailRequestId = 0
     const data = reactive({
       PodData: [],
-      podDetailTableValue: 1,
+      podDetailTableValue: "1",
 
       livenessProbe: [
         { label: 'http get', value: 'httpGet' },
@@ -671,9 +684,19 @@ export default {
       postStartValue: '',
     })
     const getPodDetail = (params) => {
+      const requestId = ++podDetailRequestId
       PodDetail(params).then(res => {
+        if (!podDetailAlive || requestId !== podDetailRequestId) {
+          return
+        }
         if (res.errCode === 0){
           data.PodData = res.data
+          nextTick(() => {
+            const page = document.querySelector(".pod-detail-page")
+            if (page) {
+              page.scrollTop = 0
+            }
+          })
         }else {
           message.error(res.errMsg)
         }
@@ -738,32 +761,117 @@ export default {
     };
 
     const getWorkloadTable = () => {
-      data.podDetailTableValue = localStorage.getItem("podDetailTable");
-      if (data.podDetailTableValue === "" || data.podDetailTableValue === undefined) {
-        data.podDetailTableValue = 1
+      data.podDetailTableValue = normalizePodDetailTab(route.query.podDetailTab || localStorage.getItem("podDetailTable"))
+    }
+    const inferDeploymentNameFromPod = (podName) => {
+      if (!podName || typeof podName !== "string") {
+        return ""
       }
+      const parts = podName.split("-")
+      if (parts.length <= 2) {
+        return ""
+      }
+      return parts.slice(0, -2).join("-")
+    }
+    const inferredDeploymentName = computed(() => inferDeploymentNameFromPod(route.query.name))
+    const shouldReturnDeployment = computed(() => {
+      return route.query.returnTo === "deploymentDetail" || (!!inferredDeploymentName.value && route.query.returnTo !== "podList")
+    })
+    const returnButtonLabel = computed(() => {
+      if (shouldReturnDeployment.value) {
+        return "返回应用详情"
+      }
+      return "返回 Pod 列表"
+    })
+    const goDeploymentDetail = () => {
+      const sourceName = route.query.sourceName || inferredDeploymentName.value
+      if (!sourceName) {
+        goPodList()
+        return
+      }
+      router.push({
+        name: 'DeploymentDetail',
+        query: {
+          clusterId: route.query.clusterId,
+          namespace: route.query.sourceNamespace || route.query.namespace,
+          name: sourceName,
+          scrollTo: route.query.scrollTo || "pods"
+        }
+      })
+    }
+    const goPodList = () => {
+      if (route.query.namespace) {
+        localStorage.setItem("namespace", route.query.namespace)
+      }
+      localStorage.setItem("workload", "6")
+      router.push({
+        name: 'WorkLoad',
+        query: {
+          clusterId: route.query.clusterId,
+          namespace: route.query.namespace,
+          workload: "pod"
+        }
+      })
+    }
+    const goReturnTarget = () => {
+      if (message.destroy) {
+        message.destroy()
+      }
+      if (shouldReturnDeployment.value) {
+        goDeploymentDetail()
+        return
+      }
+      goPodList()
     }
     // TODO 容器组详情页面 如果有多个容器或者Init容器支持可折叠
     const podCollapse = (val) => {
       console.log(val)
     }
-    onMounted(getWorkloadTable)
     onMounted(() => {
-      getPodDetail(router.query);
       getWorkloadTable();
+      getPodDetail(route.query);
     });
+    onUnmounted(() => {
+      podDetailAlive = false
+      podDetailRequestId += 1
+      if (message.destroy) {
+        message.destroy()
+      }
+    })
+    watch(
+      () => [route.query.clusterId, route.query.namespace, route.query.name, route.query.podDetailTab],
+      () => {
+        getWorkloadTable();
+        getPodDetail(route.query);
+      }
+    )
     return {
       data,
       podStatusConditionsColumns,
       podEventsColumns,
       podDetailTablesCallBack,
       podCollapse,
+      returnButtonLabel,
+      goReturnTarget,
     }
   }
 }
 </script>
 
 <style >
+.pod-detail-page {
+  background-color: #ffffff;
+  max-height: calc(100vh - 170px);
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.pod-detail-card {
+  border: 1px solid rgb(235, 237, 240);
+  min-height: calc(100vh - 170px);
+  padding-bottom: 24px;
+}
+
 .table-viewer-header .table-viewer-topbar-title {
   font-size: 14px;
   color: #333333;

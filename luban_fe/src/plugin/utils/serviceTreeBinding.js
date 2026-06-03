@@ -33,6 +33,45 @@ function buildBindingRulePayload(form) {
   }
 }
 
+function isBindableServiceTreeNode(node) {
+  if (!node) {
+    return false
+  }
+  if (node.bindable === true || node.isLeafEnv === true) {
+    return true
+  }
+  const children = Array.isArray(node.children) ? node.children : []
+  return node.nodeType === 'env' && children.length === 0
+}
+
+function childNodeTypeOptions(parentNode) {
+  if (!parentNode) {
+    return [{label: 'Namespace 根节点', value: 'namespace'}]
+  }
+  if (parentNode.nodeType === 'namespace') {
+    return [{label: '业务节点', value: 'service'}]
+  }
+  if (parentNode.nodeType === 'service') {
+    return [
+      {label: '业务节点', value: 'service'},
+      {label: '环境节点', value: 'env'},
+    ]
+  }
+  return []
+}
+
+function buildServiceTreeNodePayload(form) {
+  return {
+    parentId: Number(form.parentId || 0),
+    nodeType: String(form.nodeType || '').trim(),
+    name: String(form.name || '').trim(),
+    namespace: String(form.namespace || '').trim(),
+    clusterId: String(form.clusterId || '').trim(),
+    sortId: Number(form.sortId || 0),
+    description: String(form.description || '').trim(),
+  }
+}
+
 function buildPolicyPayload(form) {
   const actions = Array.isArray(form.actions) && form.actions.length > 0 ? form.actions : DEFAULT_ACTIONS
   return {
@@ -75,6 +114,9 @@ module.exports = {
   normalizeKind,
   splitSelector,
   isValidLabelSelector,
+  isBindableServiceTreeNode,
+  childNodeTypeOptions,
+  buildServiceTreeNodePayload,
   buildBindingRulePayload,
   buildPolicyPayload,
 }

@@ -70,19 +70,19 @@
           <a-divider type="vertical"/>
           <a @click="detailPod(text)">详情</a>
           <a-divider type="vertical"/>
-          <a :href="k8sPodTerminalHref(text)" @click="openK8sPodTerminal(text)">终端</a>
-          <a-divider type="vertical"/>
-          <a @click="viewPodLog(text)">日志</a>
-          <a-divider type="vertical"/>
-          <a-dropdown :trigger="['click']">
+          <a v-if="canAction(text, 'pod', 'exec')" :href="k8sPodTerminalHref(text)" @click="openK8sPodTerminal(text)">终端</a>
+          <a-divider v-if="canAction(text, 'pod', 'exec') && canAction(text, 'pod', 'log')" type="vertical"/>
+          <a v-if="canAction(text, 'pod', 'log')" @click="viewPodLog(text)">日志</a>
+          <a-divider v-if="canAction(text, 'pod', 'yaml_edit') || canAction(text, 'pod', 'delete')" type="vertical"/>
+          <a-dropdown v-if="canAction(text, 'pod', 'yaml_edit') || canAction(text, 'pod', 'delete')" :trigger="['click']">
             <a class="ant-dropdown-link" @click.prevent>
               更多
               <DownOutlined/>
             </a>
             <template #overlay>
               <a-menu>
-                <a-menu-item><span @click="editDeployment(text)">编辑容器</span></a-menu-item>
-                <a-menu-item><span @click="removeOnePod(text)" style="color: red">删除容器</span></a-menu-item>
+                <a-menu-item v-if="canAction(text, 'pod', 'yaml_edit')"><span @click="editDeployment(text)">编辑容器</span></a-menu-item>
+                <a-menu-item v-if="canAction(text, 'pod', 'delete')"><span @click="removeOnePod(text)" style="color: red">删除容器</span></a-menu-item>
               </a-menu>
             </template>
           </a-dropdown>
@@ -92,7 +92,7 @@
 
     <div style="float:left;padding: 10px 0 0 20px">
       <a-space>
-        <a-button :disabled="!hasSelected" @click="CollectionRemovePods">批量删除</a-button>
+        <a-button :disabled="!canDeleteSelected" @click="CollectionRemovePods">批量删除</a-button>
       </a-space>
     </div>
     <div class="float-right" style="padding: 10px 0;">
@@ -153,7 +153,7 @@
 </template>
 
 <script>
-import {computed, inject, onMounted, reactive, toRaw, toRefs} from "vue";
+import {computed, inject, onMounted, reactive, toRaw, toRefs, watch} from "vue";
 import {
   DeleteCollectionPods,
   DeletePod,
@@ -163,6 +163,7 @@ import {
 import {SyncOutlined} from "@ant-design/icons-vue";
 import router from "../../router";
 import {k8sPodTerminalHref, openK8sPodTerminal} from "../../plugin/utils/k8sTerminal";
+import {canK8sRowAction, canK8sRowsAction} from "../../plugin/utils/k8sActionAuth";
 
 const columns = [
   {
@@ -213,6 +214,7 @@ export default {
       namespace: "default",
       filterBy: "",
       sortBy: "d,creationTimestamp",
+      treeNodeId: "",
     });
     const cluster = reactive({
       clusterId: "",
@@ -228,6 +230,15 @@ export default {
     };
     const hasSelected = computed(() => state.selectedRowKeys.length > 0);
     const message = inject('$message');
+    const serviceTreeContext = inject("serviceTreeContext", reactive({
+      treeNodeId: "",
+      namespace: "",
+      env: "",
+      service: "",
+      path: "",
+    }));
+    const canAction = (text, kind, action) => canK8sRowAction(serviceTreeContext, text, kind, action)
+    const canDeleteSelected = computed(() => hasSelected.value && canK8sRowsAction(serviceTreeContext, data.selectedRows, "pod", "delete"));
     const data = reactive({
       namespaceData: [],
       searchValue: "",
@@ -248,6 +259,10 @@ export default {
       data.searchValue = value
       queryInfo.filterBy = "name," + data.searchValue
       let cs = GetStorage()
+      queryInfo.treeNodeId = serviceTreeContext.treeNodeId
+      if (serviceTreeContext.namespace) {
+        queryInfo.namespace = serviceTreeContext.namespace
+      }
       GetPodsList(cs.clusterId, queryInfo).then(res => {
         if (res.errCode === 0) {
           data.podsData = res.data.pods
@@ -270,6 +285,10 @@ export default {
       // filterBy=name,nginx&itemsPerPage=50&name=&page=1&sortBy=d,creationTimestamp&namespace=default
       data.loading = true
       let cs = GetStorage()
+      queryInfo.treeNodeId = serviceTreeContext.treeNodeId
+      if (serviceTreeContext.namespace) {
+        queryInfo.namespace = serviceTreeContext.namespace
+      }
       GetPodsList(cs.clusterId, queryInfo).then(res => {
         if (res.errCode === 0) {
           data.podsData = res.data.pods
@@ -370,7 +389,8 @@ export default {
         name: 'PodDetail', query: {
           clusterId: cs.clusterId,
           namespace: text.objectMeta.namespace,
-          name: text.objectMeta.name
+          name: text.objectMeta.name,
+          returnTo: 'podList'
         }
       });
     }
@@ -381,12 +401,21 @@ export default {
           clusterId: cs.clusterId,
           namespace: text.objectMeta.namespace,
           name: text.objectMeta.name,
-          type: text.typeMeta.kind
+          type: text.typeMeta.kind,
+          returnTo: 'podList'
         }
       });
     }
     onMounted(() => {
       GetNamespaceList()
+      GetPods()
+    })
+    watch(() => serviceTreeContext.treeNodeId, () => {
+      queryInfo.page = 1
+      queryInfo.treeNodeId = serviceTreeContext.treeNodeId
+      if (serviceTreeContext.namespace) {
+        queryInfo.namespace = serviceTreeContext.namespace
+      }
       GetPods()
     })
 
@@ -403,6 +432,8 @@ export default {
       onShowSizeChangePage,
       onChangePage,
       hasSelected,
+      canAction,
+      canDeleteSelected,
       nodeDetail,
       CollectionRemovePods,
       CollectionRemovePodsColumns,

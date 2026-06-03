@@ -69,6 +69,9 @@ func DeleteCronJobController(c *gin.Context) {
 	}
 	namespace := parser.ParseNamespaceParameter(c)
 	name := parser.ParseNameParameter(c)
+	if !authorizeK8sCronJob(c, namespace, name, k8s.ServiceTreeActionDelete) {
+		return
+	}
 	err = cronjob.DeleteCronJob(client, namespace, name)
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
@@ -92,6 +95,11 @@ func DeleteCollectionCronJobController(c *gin.Context) {
 		response.FailWithMessage(response.ParamError, err.Error(), c)
 		return
 	}
+	for _, item := range jobList {
+		if !authorizeK8sCronJob(c, item.Namespace, item.Name, k8s.ServiceTreeActionDelete) {
+			return
+		}
+	}
 
 	err = cronjob.DeleteCollectionCronJob(client, jobList)
 	if err != nil {
@@ -113,6 +121,9 @@ func DetailCronJobController(c *gin.Context) {
 
 	namespace := parser.ParseNamespaceParameter(c)
 	name := parser.ParseNameParameter(c)
+	if !authorizeK8sCronJob(c, namespace, name, k8s.ServiceTreeActionView) {
+		return
+	}
 
 	result, err := cronjob.GetCronJobDetail(client, namespace, name)
 	if err != nil {

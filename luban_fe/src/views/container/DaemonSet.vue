@@ -63,7 +63,8 @@
           <a @click="daemonSetDetail(text)">详情</a>
           <a-divider type="vertical"/>
 
-          <a-popconfirm placement="left" ok-text="确定" cancel-text="取消" @confirm="restartDaemonSetOk(text)">
+          <a-divider v-if="canAction(text, 'daemonset', 'restart')" type="vertical"/>
+          <a-popconfirm v-if="canAction(text, 'daemonset', 'restart')" placement="left" ok-text="确定" cancel-text="取消" @confirm="restartDaemonSetOk(text)">
             <template #title>
               <span>你确定要重启应用吗？</span><br/>
               <span>{{ text.objectMeta.name }}</span>
@@ -71,17 +72,17 @@
             <a>重启</a>
           </a-popconfirm>
 
-          <a-divider type="vertical"/>
+          <a-divider v-if="canAction(text, 'daemonset', 'yaml_edit') || canAction(text, 'daemonset', 'delete')" type="vertical"/>
 
-          <a-dropdown :trigger="['click']">
+          <a-dropdown v-if="canAction(text, 'daemonset', 'yaml_edit') || canAction(text, 'daemonset', 'delete')" :trigger="['click']">
             <a class="ant-dropdown-link" @click.prevent>
               更多
               <DownOutlined/>
             </a>
             <template #overlay>
               <a-menu>
-                <a-menu-item><span @click="editDaemonSet(text)">编辑应用</span></a-menu-item>
-                <a-menu-item><span @click="removeOneDaemonSet(text)" style="color: red">删除应用</span></a-menu-item>
+                <a-menu-item v-if="canAction(text, 'daemonset', 'yaml_edit')"><span @click="editDaemonSet(text)">编辑应用</span></a-menu-item>
+                <a-menu-item v-if="canAction(text, 'daemonset', 'delete')"><span @click="removeOneDaemonSet(text)" style="color: red">删除应用</span></a-menu-item>
               </a-menu>
             </template>
           </a-dropdown>
@@ -91,7 +92,7 @@
       </a-table>
       <div style="float:left;padding: 10px 0 0 20px">
         <a-space>
-          <a-button :disabled="!hasSelected" @click="CollectionRemoveDaemonSet">批量删除</a-button>
+          <a-button :disabled="!canDeleteSelected" @click="CollectionRemoveDaemonSet">批量删除</a-button>
         </a-space>
       </div>
     </a-spin>
@@ -153,7 +154,7 @@
 </template>
 
 <script>
-import {computed, inject, onMounted, reactive, toRaw, toRefs} from "vue";
+import {computed, inject, onMounted, reactive, toRaw, toRefs, watch} from "vue";
 import {GetStorage} from "../../plugin/state/stroge";
 import {SyncOutlined} from '@ant-design/icons-vue';
 import {
@@ -165,6 +166,7 @@ import {
   RestartDaemonSet
 } from "../../api/k8s";
 import router from "../../router";
+import {canK8sRowAction, canK8sRowsAction} from "../../plugin/utils/k8sActionAuth";
 const columns = [
   {
     title: '名称',
@@ -215,8 +217,16 @@ export default {
       namespace: "default",
       filterBy: "",
       sortBy: "d,creationTimestamp",
+      treeNodeId: "",
     });
     const message = inject('$message');
+    const serviceTreeContext = inject("serviceTreeContext", reactive({
+      treeNodeId: "",
+      namespace: "",
+      env: "",
+      service: "",
+      path: "",
+    }));
     const state = reactive({
       selectedRowKeys: [],
     })
@@ -246,6 +256,8 @@ export default {
       queryInfo.namespace = localStorage.getItem("namespace")
     }
     const hasSelected = computed(() => state.selectedRowKeys.length > 0);
+    const canAction = (text, kind, action) => canK8sRowAction(serviceTreeContext, text, kind, action)
+    const canDeleteSelected = computed(() => hasSelected.value && canK8sRowsAction(serviceTreeContext, data.selectedRows, "daemonset", "delete"));
     const onSelectChange = (selectedRowKeys, selectedRows) => {
       state.selectedRowKeys = selectedRowKeys;
       data.selectedRows = selectedRows
@@ -279,6 +291,10 @@ export default {
       // filterBy=name,ur&itemsPerPage=10&name=&page=1&sortBy=d,creationTimestamp&namespace=default
       data.loading = true
       let cs = GetStorage()
+      queryInfo.treeNodeId = serviceTreeContext.treeNodeId
+      if (serviceTreeContext.namespace) {
+        queryInfo.namespace = serviceTreeContext.namespace
+      }
       GetDaemonSet(cs.clusterId, queryInfo).then(res => {
         if (res.errCode === 0) {
           data.daemonSetData = res.data.daemonSets
@@ -305,6 +321,10 @@ export default {
       data.searchValue = keyword
       queryInfo.filterBy = "name," + data.searchValue
       let cs = GetStorage()
+      queryInfo.treeNodeId = serviceTreeContext.treeNodeId
+      if (serviceTreeContext.namespace) {
+        queryInfo.namespace = serviceTreeContext.namespace
+      }
       GetDaemonSet(cs.clusterId, queryInfo).then(res => {
         if (res.errCode === 0) {
           data.daemonSetData = res.data.daemonSets
@@ -377,6 +397,14 @@ export default {
       GetNamespaceList()
       getDaemonSetList()
     })
+    watch(() => serviceTreeContext.treeNodeId, () => {
+      queryInfo.page = 1
+      queryInfo.treeNodeId = serviceTreeContext.treeNodeId
+      if (serviceTreeContext.namespace) {
+        queryInfo.namespace = serviceTreeContext.namespace
+      }
+      getDaemonSetList()
+    })
     return {
       data,
       ...toRefs(state),
@@ -384,6 +412,8 @@ export default {
       GetNamespaceList,
       onSelectChange,
       hasSelected,
+      canAction,
+      canDeleteSelected,
       filterByNamespaceOnDaemonSet,
       getDaemonSetList,
       columns,

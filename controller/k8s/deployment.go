@@ -79,6 +79,11 @@ func DeleteCollectionDeployment(c *gin.Context) {
 		response.FailWithMessage(http.StatusNotFound, err.Error(), c)
 		return
 	}
+	for _, item := range deploymentList {
+		if !authorizeK8sDeployment(c, item.Namespace, item.DeploymentName, k8s.ServiceTreeActionDelete) {
+			return
+		}
+	}
 
 	err = deployment.DeleteCollectionDeployment(client, deploymentList)
 	if err != nil {
@@ -102,6 +107,14 @@ func DeleteDeployment(c *gin.Context) {
 	if err2 != nil {
 		response.FailWithMessage(http.StatusNotFound, err2.Error(), c)
 		return
+	}
+	if !authorizeK8sDeployment(c, deploymentData.Namespace, deploymentData.DeploymentName, k8s.ServiceTreeActionDelete) {
+		return
+	}
+	if deploymentData.IsDeleteService && deploymentData.ServiceName != "" {
+		if !authorizeK8sService(c, deploymentData.Namespace, deploymentData.ServiceName, k8s.ServiceTreeActionDelete) {
+			return
+		}
 	}
 
 	err = deployment.DeleteDeployment(client, deploymentData.Namespace, deploymentData.DeploymentName)
@@ -138,6 +151,9 @@ func ScaleDeployment(c *gin.Context) {
 		response.FailWithMessage(http.StatusNotFound, err2.Error(), c)
 		return
 	}
+	if !authorizeK8sDeployment(c, scaleData.Namespace, scaleData.DeploymentName, k8s.ServiceTreeActionScale) {
+		return
+	}
 
 	err = deployment.ScaleDeployment(client, scaleData.Namespace, scaleData.DeploymentName, *scaleData.ScaleNumber)
 	if err != nil {
@@ -159,6 +175,9 @@ func RestartDeploymentController(c *gin.Context) {
 	err2 := controller.CheckParams(c, &restartDeployment)
 	if err2 != nil {
 		response.FailWithMessage(response.ParamError, err2.Error(), c)
+		return
+	}
+	if !authorizeK8sDeployment(c, restartDeployment.Namespace, restartDeployment.DeploymentName, k8s.ServiceTreeActionRestart) {
 		return
 	}
 	err3 := deployment.RestartDeployment(client, restartDeployment.DeploymentName, restartDeployment.Namespace)
@@ -184,6 +203,9 @@ func GetDeploymentToServiceController(c *gin.Context) {
 		response.FailWithMessage(response.ParamError, err2.Error(), c)
 		return
 	}
+	if !authorizeK8sDeployment(c, Deployment.Namespace, Deployment.DeploymentName, k8s.ServiceTreeActionView) {
+		return
+	}
 
 	data, err := service.GetToService(client, Deployment.Namespace, Deployment.DeploymentName)
 	if err != nil {
@@ -203,6 +225,9 @@ func DetailDeploymentController(c *gin.Context) {
 	}
 	namespace := parser.ParseNamespaceParameter(c)
 	name := parser.ParseNameParameter(c)
+	if !authorizeK8sDeployment(c, namespace, name, k8s.ServiceTreeActionView) {
+		return
+	}
 
 	data, err := deployment.GetDeploymentDetail(client, namespace, name)
 
@@ -224,6 +249,9 @@ func RollBackDeploymentController(c *gin.Context) {
 	rollbackParamsErr := controller.CheckParams(c, &rollback)
 	if rollbackParamsErr != nil {
 		response.FailWithMessage(response.ParamError, rollbackParamsErr.Error(), c)
+		return
+	}
+	if !authorizeK8sDeployment(c, rollback.Namespace, rollback.DeploymentName, k8s.ServiceTreeActionYamlEdit) {
 		return
 	}
 	rollbackErr := deployment.RollbackDeployment(client, rollback.DeploymentName, rollback.Namespace, *rollback.ReVersion)

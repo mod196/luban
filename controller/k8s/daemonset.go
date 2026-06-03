@@ -75,6 +75,11 @@ func DeleteCollectionDaemonSetController(c *gin.Context) {
 		response.FailWithMessage(http.StatusNotFound, err.Error(), c)
 		return
 	}
+	for _, item := range daemonSetList {
+		if !authorizeK8sDaemonSet(c, item.Namespace, item.Name, k8s.ServiceTreeActionDelete) {
+			return
+		}
+	}
 
 	err = daemonset.DeleteCollectionDaemonSet(client, daemonSetList)
 	if err != nil {
@@ -94,6 +99,9 @@ func DeleteDaemonSetController(c *gin.Context) {
 	}
 	namespace := parser.ParseNamespaceParameter(c)
 	name := parser.ParseNameParameter(c)
+	if !authorizeK8sDaemonSet(c, namespace, name, k8s.ServiceTreeActionDelete) {
+		return
+	}
 
 	err = daemonset.DeleteDaemonSet(client, namespace, name)
 	if err != nil {
@@ -118,6 +126,9 @@ func RestartDaemonSetController(c *gin.Context) {
 		response.FailWithMessage(http.StatusNotFound, err.Error(), c)
 		return
 	}
+	if !authorizeK8sDaemonSet(c, daemonSet.Namespace, daemonSet.Name, k8s.ServiceTreeActionRestart) {
+		return
+	}
 
 	err = daemonset.RestartDaemonSet(client, daemonSet.Namespace, daemonSet.Name)
 
@@ -136,6 +147,9 @@ func DetailDaemonSetController(c *gin.Context) {
 	}
 	namespace := parser.ParseNamespaceParameter(c)
 	name := parser.ParseNameParameter(c)
+	if !authorizeK8sDaemonSet(c, namespace, name, k8s.ServiceTreeActionView) {
+		return
+	}
 
 	data, err := daemonset.GetDaemonSetDetail(client, namespace, name)
 

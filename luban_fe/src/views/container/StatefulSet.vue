@@ -64,7 +64,8 @@
           <a @click="StatefulSetDetail(text)">详情</a>
           <a-divider type="vertical"/>
 
-          <a-popconfirm placement="left" ok-text="确定" cancel-text="取消" @confirm="RestartStatefulSet(text)">
+          <a-divider v-if="canAction(text, 'statefulset', 'restart')" type="vertical"/>
+          <a-popconfirm v-if="canAction(text, 'statefulset', 'restart')" placement="left" ok-text="确定" cancel-text="取消" @confirm="RestartStatefulSet(text)">
             <template #title>
               <span>你确定要重启应用吗？</span><br/>
               <span>{{ text.objectMeta.name }}</span>
@@ -72,18 +73,18 @@
             <a>重启</a>
           </a-popconfirm>
 
-          <a-divider type="vertical"/>
-          <a @click="ScaleStatefulSet(text)">扩缩容</a>
-          <a-divider type="vertical"/>
-          <a-dropdown :trigger="['click']">
+          <a-divider v-if="canAction(text, 'statefulset', 'scale')" type="vertical"/>
+          <a v-if="canAction(text, 'statefulset', 'scale')" @click="ScaleStatefulSet(text)">扩缩容</a>
+          <a-divider v-if="canAction(text, 'statefulset', 'yaml_edit') || canAction(text, 'statefulset', 'delete')" type="vertical"/>
+          <a-dropdown v-if="canAction(text, 'statefulset', 'yaml_edit') || canAction(text, 'statefulset', 'delete')" :trigger="['click']">
             <a class="ant-dropdown-link" @click.prevent>
               更多
               <DownOutlined/>
             </a>
             <template #overlay>
               <a-menu>
-                <a-menu-item><span @click="EditStatefulSet(text)">编辑应用</span></a-menu-item>
-                <a-menu-item><span @click="RemoveOneStatefulSet(text)" style="color: red">删除应用</span></a-menu-item>
+                <a-menu-item v-if="canAction(text, 'statefulset', 'yaml_edit')"><span @click="EditStatefulSet(text)">编辑应用</span></a-menu-item>
+                <a-menu-item v-if="canAction(text, 'statefulset', 'delete')"><span @click="RemoveOneStatefulSet(text)" style="color: red">删除应用</span></a-menu-item>
               </a-menu>
             </template>
           </a-dropdown>
@@ -94,7 +95,7 @@
 
     <div style="float:left;padding: 10px 0 0 20px">
       <a-space>
-        <a-button :disabled="!hasSelected" @click="CollectionRemoveStatefulSet">批量删除</a-button>
+        <a-button :disabled="!canDeleteSelected" @click="CollectionRemoveStatefulSet">批量删除</a-button>
       </a-space>
     </div>
 
@@ -179,7 +180,7 @@
 </template>
 
 <script>
-import {computed, inject, onMounted, reactive, toRaw, toRefs} from "vue";
+import {computed, inject, onMounted, reactive, toRaw, toRefs, watch} from "vue";
 import {
   GetStatefulSet,
   GetNamespaces,
@@ -190,6 +191,7 @@ import {
 import {GetStorage} from "../../plugin/state/stroge";
 import {SyncOutlined} from '@ant-design/icons-vue';
 import router from "../../router";
+import {canK8sRowAction, canK8sRowsAction} from "../../plugin/utils/k8sActionAuth";
 
 const columns = [
   {
@@ -260,14 +262,24 @@ export default {
       namespace: "default",
       filterBy: "",
       sortBy: "d,creationTimestamp",
+      treeNodeId: "",
     });
 
     const message = inject('$message');
+    const serviceTreeContext = inject("serviceTreeContext", reactive({
+      treeNodeId: "",
+      namespace: "",
+      env: "",
+      service: "",
+      path: "",
+    }));
 
     const state = reactive({
       selectedRowKeys: [],
     })
     const hasSelected = computed(() => state.selectedRowKeys.length > 0);
+    const canAction = (text, kind, action) => canK8sRowAction(serviceTreeContext, text, kind, action)
+    const canDeleteSelected = computed(() => hasSelected.value && canK8sRowsAction(serviceTreeContext, data.selectedRows, "statefulset", "delete"));
 
     const onSelectChange = (selectedRowKeys, selectedRows) => {
       state.selectedRowKeys = selectedRowKeys;
@@ -290,6 +302,10 @@ export default {
       data.searchValue = value
       queryInfo.filterBy = "name," + data.searchValue
       let cs = GetStorage()
+      queryInfo.treeNodeId = serviceTreeContext.treeNodeId
+      if (serviceTreeContext.namespace) {
+        queryInfo.namespace = serviceTreeContext.namespace
+      }
       GetStatefulSet(cs.clusterId, queryInfo).then(res => {
         if (res.errCode === 0) {
           data.statefulSetData = res.data.statefulSets
@@ -329,6 +345,10 @@ export default {
       // filterBy=name,ur&itemsPerPage=10&name=&page=1&sortBy=d,creationTimestamp&namespace=default
       data.loading = true
       let cs = GetStorage()
+      queryInfo.treeNodeId = serviceTreeContext.treeNodeId
+      if (serviceTreeContext.namespace) {
+        queryInfo.namespace = serviceTreeContext.namespace
+      }
       GetStatefulSet(cs.clusterId, queryInfo).then(res => {
         if (res.errCode === 0) {
           data.statefulSetData = res.data.statefulSets
@@ -436,6 +456,14 @@ export default {
       GetNamespaceList()
       GetStatefulSetList()
     })
+    watch(() => serviceTreeContext.treeNodeId, () => {
+      queryInfo.page = 1
+      queryInfo.treeNodeId = serviceTreeContext.treeNodeId
+      if (serviceTreeContext.namespace) {
+        queryInfo.namespace = serviceTreeContext.namespace
+      }
+      GetStatefulSetList()
+    })
     return {
       data,
       ...toRefs(state),
@@ -443,6 +471,8 @@ export default {
       columns,
       GetNamespaceList,
       hasSelected,
+      canAction,
+      canDeleteSelected,
       onSelectChange,
       filterByNamespaceOnStatefulSet,
       statefulSetSearch,

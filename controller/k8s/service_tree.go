@@ -101,6 +101,17 @@ func GetServiceTreeBindingsController(c *gin.Context) {
 	response.OkWithData(data, c)
 }
 
+func DeleteServiceTreeBindingController(c *gin.Context) {
+	if err := services.DeleteK8sServiceTreeBinding(
+		services.ParseTreeNodeID(c.Query("id")),
+		c.Query("clusterId"),
+	); err != nil {
+		response.FailWithMessage(response.ParamError, err.Error(), c)
+		return
+	}
+	response.Ok(c)
+}
+
 func GetServiceTreeUnclassifiedController(c *gin.Context) {
 	data, err := services.ListK8sServiceTreeUnclassified(c.Query("clusterId"))
 	if err != nil {
@@ -133,6 +144,14 @@ func GetServiceTreeBindingRulesController(c *gin.Context) {
 	response.OkWithData(data, c)
 }
 
+func DeleteServiceTreeBindingRuleController(c *gin.Context) {
+	if err := services.DeleteK8sServiceTreeBindingRule(services.ParseTreeNodeID(c.Query("id"))); err != nil {
+		response.FailWithMessage(response.ParamError, err.Error(), c)
+		return
+	}
+	response.Ok(c)
+}
+
 func CreateServiceTreePolicyController(c *gin.Context) {
 	var req services.TreePolicyRequest
 	if err := controller.CheckParams(c, &req); err != nil {
@@ -155,6 +174,29 @@ func GetServiceTreePoliciesController(c *gin.Context) {
 	data, err := services.ListK8sTreePolicies()
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
+		return
+	}
+	response.OkWithData(data, c)
+}
+
+func DeleteServiceTreePolicyController(c *gin.Context) {
+	if err := services.DeleteK8sTreePolicy(services.ParseTreeNodeID(c.Query("id"))); err != nil {
+		response.FailWithMessage(response.ParamError, err.Error(), c)
+		return
+	}
+	response.Ok(c)
+}
+
+func GetServiceTreeAuthorizedResourcesController(c *gin.Context) {
+	data, err := services.ListAuthorizedK8sResources(
+		currentUser(c),
+		c.DefaultQuery("principalType", "user"),
+		services.ParseTreeNodeID(c.Query("principalId")),
+		c.Query("clusterId"),
+		services.ParseTreeNodeID(c.Query("treeNodeId")),
+	)
+	if err != nil {
+		response.FailWithMessage(response.ParamError, err.Error(), c)
 		return
 	}
 	response.OkWithData(data, c)

@@ -26,6 +26,7 @@ import (
 	"sync"
 
 	"github.com/dnsjia/luban/common"
+	k8smodel "github.com/dnsjia/luban/models/k8s"
 	"github.com/dnsjia/luban/pkg/k8s/Init"
 	"github.com/dnsjia/luban/services"
 	"github.com/gin-gonic/gin"
@@ -155,6 +156,10 @@ func K8sTerminalController(c *gin.Context) {
 	podName := c.Query("pod")
 	if namespace == "" || podName == "" {
 		terminal.writeLine("缺少 namespace 或 pod 参数")
+		return
+	}
+	if err := services.AuthorizeK8sPodAction(currentUser(c), client, c.Query("clusterId"), namespace, podName, k8smodel.ServiceTreeActionExec); err != nil {
+		terminal.writeLine("无权进入终端: %v", err)
 		return
 	}
 

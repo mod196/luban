@@ -1,136 +1,10 @@
 <template>
-    <div style="background-color: #FFFFFF">
-      <a-page-header style="border: 1px solid rgb(235, 237, 240)" :title="data.DetailData.objectMeta.name" @back="() => $router.go(-1)" v-if="data.DetailData.objectMeta">
-<!--        <template>-->
-          <div class="console-sub-title custom-sub-title top-sub clearfix">
-            <div class="pull-left">
-              <h4>基本信息</h4>
-            </div>
-          </div>
-          <table class="table-default-viewer">
-            <tbody>
-            <tr>
-              <td style="width: 50%">
-                <span>名称</span>
-                <span class="margin-right">: </span>
-                <span>{{ data.DetailData.objectMeta.name }}</span>
-              </td>
-              <td>
-                <span>命名空间</span>
-                <span class="margin-right">: </span>
-                <span>{{ data.DetailData.objectMeta.namespace }}</span>
-              </td>
-            </tr>
-            <tr>
-              <td style="width: 50%">
-                <span>状态</span>
-                <span class="margin-right">: </span>
-                <span>
-                  就绪：{{ data.DetailData.statusInfo.available }}/{{ data.DetailData.statusInfo.replicas }}个，
-                  已更新：{{ data.DetailData.statusInfo.updated }}个，可用：{{ data.DetailData.statusInfo.available }}个，
-                  不可用：{{ data.DetailData.statusInfo.unavailable }}个
-                </span>
-              </td>
-              <td>
-                <span>创建时间</span>
-                <span class="margin-right">: </span>
-                <span> {{ $filters.fmtTime(data.DetailData.objectMeta.creationTimestamp) }}</span>
-              </td>
-            </tr>
-            <tr>
-              <td style="width: 50%">
-                <span>策略</span>
-                <span class="margin-right">: </span>
-                <span>{{ data.DetailData.strategy }}</span>
-              </td>
-              <td colspan="2">
-                <span>选择器</span>
-                <span class="margin-right">: </span>
-                <span style="font-size: 12px; display: inline-block;  margin-bottom: 5px;" >
-                <a-tag v-for="(label_k, label_v, index) in data.DetailData.selector" :key="index">{{ label_v }}: {{ label_k }}</a-tag>
-              </span>
-              </td>
-            </tr>
-
-            <tr>
-              <td style="width: 50%">
-                <span>滚动升级策略</span>
-                <span class="margin-right">: </span>
-                <div v-if="data.DetailData.rollingUpdateStrategy">
-                  <span>超过期望的Pod数量: {{ data.DetailData.rollingUpdateStrategy.maxSurge }}</span>
-                  <span style="padding-left: 30px">不可用Pod最大数量: {{ data.DetailData.rollingUpdateStrategy.maxUnavailable }}</span>
-                </div>
-              </td>
-              <td>
-                <span>注解</span>
-                <span class="margin-right">: </span>
-                <span style="font-size: 12px; display: inline-block; white-space: normal; margin-bottom: 5px;" >
-                <span v-for="(k, v, i) in data.DetailData.objectMeta.annotations" :key="i">
-                  <a-tag v-if="v !== 'kubectl.kubernetes.io/last-applied-configuration'" :key="i">
-                    {{ v }}: {{ k }}
-                  </a-tag>
-                </span>
-              </span>
-              </td>
-            </tr>
-            <tr>
-              <td colspan="2">
-                <span>标签</span>
-                <span class="margin-right">: </span>
-                <span style="font-size: 12px; display: inline-block; white-space: normal; margin-bottom: 5px;" >
-                    <a-tag v-for="(label_k, label_v, index) in data.DetailData.objectMeta.labels" :key="index">{{ label_v }}: {{ label_k }}</a-tag>
-                  </span>
-              </td>
-            </tr>
-            </tbody>
-          </table>
-          <!-- 状态 -->
-          <div class="console-sub-title custom-sub-title top-sub clearfix">
-            <div class="pull-left">
-              <h4>现状详情</h4>
-            </div>
-          </div>
-          <div id="components-table-demo-size">
-
-            <a-table
-                :columns="deploymentStatusConditionsColumns"
-                :data-source="data.DetailData.conditions"
-                :pagination="false"
-                :rowKey="item=>JSON.stringify(item)"
-                :locale="{emptyText: '暂无数据'}"
-            >
-              <!-- 	更新时间 -->
-              <template #lastProbeTime="{text}">
-                {{ $filters.fmtTime(text.lastProbeTime) }}
-              </template>
-            </a-table>
-          </div>
-
-          <!-- 事件 -->
-          <div class="console-sub-title custom-sub-title top-sub clearfix">
-            <div class="pull-left">
-              <h4>事件信息</h4>
-            </div>
-          </div>
-            <a-table
-                :columns="eventsColumns"
-                :data-source="data.deploymentEventData"
-                :pagination="false"
-                :rowKey="item=>JSON.stringify(item)"
-                :locale="{emptyText: '可能所有事件已过期'}"
-                size="middle"
-            >
-                <!-- 	更新时间 -->
-                <template #lastTimestamp="{text}">
-                <span class="level-assess">
-                  <span> {{ $filters.fmtTime(text.lastTimestamp) }}</span>
-                </span>
-                </template>
-
-            </a-table>
-
-          <br/>
-          <a-tabs v-model:activeKey="data.workload" @change="callback">
+    <div class="deployment-detail-page">
+      <a-page-header class="deployment-detail-card" :title="data.DetailData.objectMeta.name" :backIcon="false" v-if="data.DetailData.objectMeta">
+        <template #extra>
+          <a-button @click="goServiceTree">返回服务树</a-button>
+        </template>
+          <a-tabs class="deployment-detail-tabs" v-model:activeKey="data.workload" @change="callback">
 
             <a-tab-pane key="1" tab="容器组">
                 <a-table
@@ -274,6 +148,130 @@
 
               </a-table>
             </a-tab-pane>
+
+            <a-tab-pane key="4" tab="基本信息" force-render>
+              <div class="console-sub-title custom-sub-title top-sub clearfix">
+                <div class="pull-left">
+                  <h4>基本信息</h4>
+                </div>
+              </div>
+              <table class="table-default-viewer">
+                <tbody>
+                <tr>
+                  <td style="width: 50%">
+                    <span>名称</span>
+                    <span class="margin-right">: </span>
+                    <span>{{ data.DetailData.objectMeta.name }}</span>
+                  </td>
+                  <td>
+                    <span>命名空间</span>
+                    <span class="margin-right">: </span>
+                    <span>{{ data.DetailData.objectMeta.namespace }}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="width: 50%">
+                    <span>状态</span>
+                    <span class="margin-right">: </span>
+                    <span>
+                      就绪：{{ data.DetailData.statusInfo.available }}/{{ data.DetailData.statusInfo.replicas }}个，
+                      已更新：{{ data.DetailData.statusInfo.updated }}个，可用：{{ data.DetailData.statusInfo.available }}个，
+                      不可用：{{ data.DetailData.statusInfo.unavailable }}个
+                    </span>
+                  </td>
+                  <td>
+                    <span>创建时间</span>
+                    <span class="margin-right">: </span>
+                    <span> {{ $filters.fmtTime(data.DetailData.objectMeta.creationTimestamp) }}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="width: 50%">
+                    <span>策略</span>
+                    <span class="margin-right">: </span>
+                    <span>{{ data.DetailData.strategy }}</span>
+                  </td>
+                  <td colspan="2">
+                    <span>选择器</span>
+                    <span class="margin-right">: </span>
+                    <span style="font-size: 12px; display: inline-block;  margin-bottom: 5px;" >
+                      <a-tag v-for="(label_k, label_v, index) in data.DetailData.selector" :key="index">{{ label_v }}: {{ label_k }}</a-tag>
+                    </span>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="width: 50%">
+                    <span>滚动升级策略</span>
+                    <span class="margin-right">: </span>
+                    <div v-if="data.DetailData.rollingUpdateStrategy">
+                      <span>超过期望的Pod数量: {{ data.DetailData.rollingUpdateStrategy.maxSurge }}</span>
+                      <span style="padding-left: 30px">不可用Pod最大数量: {{ data.DetailData.rollingUpdateStrategy.maxUnavailable }}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <span>注解</span>
+                    <span class="margin-right">: </span>
+                    <span style="font-size: 12px; display: inline-block; white-space: normal; margin-bottom: 5px;" >
+                      <span v-for="(k, v, i) in data.DetailData.objectMeta.annotations" :key="i">
+                        <a-tag v-if="v !== 'kubectl.kubernetes.io/last-applied-configuration'" :key="i">
+                          {{ v }}: {{ k }}
+                        </a-tag>
+                      </span>
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="2">
+                    <span>标签</span>
+                    <span class="margin-right">: </span>
+                    <span style="font-size: 12px; display: inline-block; white-space: normal; margin-bottom: 5px;" >
+                      <a-tag v-for="(label_k, label_v, index) in data.DetailData.objectMeta.labels" :key="index">{{ label_v }}: {{ label_k }}</a-tag>
+                    </span>
+                  </td>
+                </tr>
+                </tbody>
+              </table>
+
+              <div class="console-sub-title custom-sub-title top-sub clearfix">
+                <div class="pull-left">
+                  <h4>现状详情</h4>
+                </div>
+              </div>
+              <div id="components-table-demo-size">
+                <a-table
+                    :columns="deploymentStatusConditionsColumns"
+                    :data-source="data.DetailData.conditions"
+                    :pagination="false"
+                    :rowKey="item=>JSON.stringify(item)"
+                    :locale="{emptyText: '暂无数据'}"
+                >
+                  <template #lastProbeTime="{text}">
+                    {{ $filters.fmtTime(text.lastProbeTime) }}
+                  </template>
+                </a-table>
+              </div>
+
+              <div class="console-sub-title custom-sub-title top-sub clearfix">
+                <div class="pull-left">
+                  <h4>事件信息</h4>
+                </div>
+              </div>
+              <a-table
+                  :columns="eventsColumns"
+                  :data-source="data.deploymentEventData"
+                  :pagination="false"
+                  :rowKey="item=>JSON.stringify(item)"
+                  :locale="{emptyText: '可能所有事件已过期'}"
+                  size="middle"
+              >
+                <template #lastTimestamp="{text}">
+                  <span class="level-assess">
+                    <span> {{ $filters.fmtTime(text.lastTimestamp) }}</span>
+                  </span>
+                </template>
+              </a-table>
+            </a-tab-pane>
           </a-tabs>
           <br/>
       </a-page-header>
@@ -314,13 +312,15 @@
 </template>
 
 <script>
-import {inject, onMounted, reactive} from "vue";
+import {inject, nextTick, onMounted, reactive} from "vue";
 import {useRoute} from "vue-router";
 import {DeleteCollectionPods, DeletePod, DeleteService, DeploymentDetail, DeploymentRollBack} from "../../api/k8s";
 import {GetStorage} from "../../plugin/state/stroge";
 import {k8sPodTerminalHref, openK8sPodTerminal} from "../../plugin/utils/k8sTerminal";
 import routers from "../../router";
 import router from "../../router";
+
+const deploymentDetailTabs = ["1", "2", "3", "4"]
 
 const deploymentStatusConditionsColumns = [
   {
@@ -462,9 +462,14 @@ export default {
       serviceData: [],
       removeOneServiceData: [],
       removeOneServiceVisible: false,
+      workload: "1",
     })
 
     let router = useRoute()
+
+    const callback = val => {
+      data.workload = deploymentDetailTabs.includes(val) ? val : "1"
+    }
 
     const getDetail = (params) => {
       DeploymentDetail(params).then(res => {
@@ -474,6 +479,16 @@ export default {
           data.historyData = res.data.historyVersion
           data.deploymentPodData = res.data.podList.pods
           data.serviceData = res.data.svcList.services
+          if (params.scrollTo === "pods") {
+            data.workload = "1"
+            nextTick(() => {
+              const page = document.querySelector(".deployment-detail-page")
+              const target = document.querySelector(".deployment-detail-tabs")
+              if (page && target) {
+                page.scrollTop += target.getBoundingClientRect().top - page.getBoundingClientRect().top - 16
+              }
+            })
+          }
         }else {
           message.error(res.errMsg)
         }
@@ -521,7 +536,11 @@ export default {
         name: 'PodDetail', query: {
           clusterId: cs.clusterId,
           namespace: text.objectMeta.namespace,
-          name: text.objectMeta.name
+          name: text.objectMeta.name,
+          returnTo: 'deploymentDetail',
+          sourceName: (data.DetailData.objectMeta && data.DetailData.objectMeta.name) || router.query.name,
+          sourceNamespace: (data.DetailData.objectMeta && data.DetailData.objectMeta.namespace) || text.objectMeta.namespace,
+          scrollTo: 'pods'
         }
       });
     }
@@ -563,7 +582,26 @@ export default {
           clusterId: cs.clusterId,
           namespace: text.objectMeta.namespace,
           name: text.objectMeta.name,
-          type: text.typeMeta.kind
+          type: text.typeMeta.kind,
+          returnTo: 'deploymentDetail',
+          sourceName: (data.DetailData.objectMeta && data.DetailData.objectMeta.name) || router.query.name,
+          sourceNamespace: (data.DetailData.objectMeta && data.DetailData.objectMeta.namespace) || text.objectMeta.namespace,
+          scrollTo: 'pods'
+        }
+      });
+    }
+    const goServiceTree = () => {
+      let cs = GetStorage()
+      const clusterId = router.query.clusterId || (cs ? cs.clusterId : "")
+      if (router.query.namespace) {
+        localStorage.setItem("namespace", router.query.namespace)
+      }
+      localStorage.setItem("workload", "1")
+      routers.push({
+        name: 'WorkLoad',
+        query: {
+          clusterId,
+          namespace: router.query.namespace,
         }
       });
     }
@@ -589,6 +627,8 @@ export default {
       removeOneService,
       removeOnServiceOnSubmit,
       viewPodLog,
+      callback,
+      goServiceTree,
       k8sPodTerminalHref,
       openK8sPodTerminal,
     }
@@ -598,6 +638,19 @@ export default {
 </script>
 
 <style scoped>
+.deployment-detail-page {
+  background-color: #ffffff;
+  max-height: calc(100vh - 170px);
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.deployment-detail-card {
+  border: 1px solid rgb(235, 237, 240);
+  min-height: calc(100vh - 170px);
+  padding-bottom: 24px;
+}
+
 .table-viewer-header .table-viewer-topbar-title {
   font-size: 14px;
   color: #333333;

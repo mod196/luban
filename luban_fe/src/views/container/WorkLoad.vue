@@ -18,8 +18,6 @@
         <div class="service-tree-toolbar">
           <span v-show="!data.serviceTreeCollapsed" class="service-tree-title">服务树</span>
           <a-space v-if="!data.serviceTreeCollapsed" :size="6">
-            <a-button size="small">新建节点</a-button>
-            <a-button size="small">授权</a-button>
             <a-tooltip title="折叠服务树">
               <a-button
                   class="service-tree-collapse-button"
@@ -109,9 +107,10 @@ import StatefulSet from "./StatefulSet";
 import DaemonSet from "./DaemonSet";
 import Job from "./Job";
 import CronJob from "./CronJob";
-import {GetK8sServiceTree} from "../../api/k8s";
+import {GetK8sServiceTree, GetK8sServiceTreeAuthorizedResources} from "../../api/k8s";
 import {GetStorage} from "../../plugin/state/stroge";
 import {MenuFoldOutlined, MenuUnfoldOutlined} from '@ant-design/icons-vue';
+import {buildK8sActionMap} from "../../plugin/utils/k8sActionAuth";
 export default {
   name: "WorkLoad",
   setup() {
@@ -135,6 +134,8 @@ export default {
       env: "",
       service: "",
       path: "",
+      actionLoading: false,
+      actionMap: {},
     })
     provide("serviceTreeContext", serviceTreeContext)
 
@@ -185,6 +186,29 @@ export default {
         localStorage.setItem("namespace", serviceTreeContext.namespace)
       }
       localStorage.setItem("serviceTreeNodeId", serviceTreeContext.treeNodeId)
+      loadAuthorizedActionMap()
+    }
+
+    const loadAuthorizedActionMap = () => {
+      const cs = GetStorage()
+      const clusterId = cs ? cs.clusterId : ""
+      if (!clusterId || !serviceTreeContext.treeNodeId) {
+        serviceTreeContext.actionMap = {}
+        return
+      }
+      serviceTreeContext.actionLoading = true
+      GetK8sServiceTreeAuthorizedResources({
+        clusterId,
+        treeNodeId: serviceTreeContext.treeNodeId,
+      }).then(res => {
+        if (res.errCode === 0) {
+          serviceTreeContext.actionMap = buildK8sActionMap(res.data || [])
+        } else {
+          serviceTreeContext.actionMap = {}
+        }
+      }).finally(() => {
+        serviceTreeContext.actionLoading = false
+      })
     }
 
     const onSelectServiceTree = (selectedKeys) => {

@@ -125,8 +125,11 @@ func ApplyBindingRulesForInventory(inventory *k8smodel.ResourceInventory) error 
 		return nil
 	}
 	var existing k8smodel.ServiceTreeBinding
-	err := common.DB.Where("cluster_id = ? AND uid = ? AND status = ?", inventory.ClusterID, inventory.UID, true).First(&existing).Error
-	if err == nil && existing.BindSource == k8smodel.ServiceTreeBindSourceManual {
+	err := common.DB.Unscoped().Where("cluster_id = ? AND uid = ?", inventory.ClusterID, inventory.UID).First(&existing).Error
+	if err == nil && existing.DeletedAt.Valid && existing.BindSource == k8smodel.ServiceTreeBindSourceManual {
+		return nil
+	}
+	if err == nil && !existing.DeletedAt.Valid && existing.Status && existing.BindSource == k8smodel.ServiceTreeBindSourceManual {
 		return nil
 	}
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -153,7 +156,7 @@ func ApplyBindingRulesForInventory(inventory *k8smodel.ResourceInventory) error 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return common.DB.Create(&binding).Error
 	}
-	return common.DB.Model(&existing).Updates(map[string]interface{}{
+	return common.DB.Unscoped().Model(&existing).Updates(map[string]interface{}{
 		"node_id":      binding.NodeID,
 		"inventory_id": binding.InventoryID,
 		"namespace":    binding.Namespace,
@@ -162,6 +165,7 @@ func ApplyBindingRulesForInventory(inventory *k8smodel.ResourceInventory) error 
 		"bind_source":  binding.BindSource,
 		"rule_id":      binding.RuleID,
 		"status":       true,
+		"deleted_at":   nil,
 	}).Error
 }
 

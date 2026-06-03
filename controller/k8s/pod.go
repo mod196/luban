@@ -75,6 +75,11 @@ func DeleteCollectionPodsController(c *gin.Context) {
 		response.FailWithMessage(response.ParamError, err.Error(), c)
 		return
 	}
+	for _, item := range podsData {
+		if !authorizeK8sPodAction(c, client, item.Namespace, item.PodName, k8s.ServiceTreeActionDelete) {
+			return
+		}
+	}
 
 	err = pods.DeleteCollectionPods(client, podsData)
 	if err != nil {
@@ -96,6 +101,9 @@ func DeletePodController(c *gin.Context) {
 
 	namespace := parser.ParseNamespaceParameter(c)
 	name := parser.ParseNameParameter(c)
+	if !authorizeK8sPodAction(c, client, namespace, name, k8s.ServiceTreeActionDelete) {
+		return
+	}
 
 	err = pods.DeletePod(client, namespace, name)
 	if err != nil {
@@ -115,6 +123,9 @@ func DetailPodController(c *gin.Context) {
 	}
 	namespace := parser.ParseNamespaceParameter(c)
 	name := parser.ParseNameParameter(c)
+	if !authorizeK8sPodAction(c, client, namespace, name, k8s.ServiceTreeActionView) {
+		return
+	}
 
 	podData, err := pods.GetPodDetail(client, namespace, name)
 	if err != nil {

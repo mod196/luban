@@ -49,7 +49,7 @@ bff-wallet   -> 钱包核心 / 支付路由 / 账务对账 -> dev-sg / prod-sg /
 | `k8s_service_tree_binding_rule` | 自动绑定规则 |
 | `k8s_service_tree_binding` | 资源到服务树 env 节点的绑定关系 |
 | `k8s_tree_policy` | 服务树授权规则 |
-| `k8s_tree_policy_user` | 授权主体，支持用户或角色 |
+| `k8s_tree_policy_user` | 授权主体，支持用户、角色或部门 |
 | `k8s_tree_policy_node` | 授权节点，支持向下继承 |
 | `k8s_tree_policy_resource_filter` | 同一节点下的资源子集过滤 |
 | `k8s_tree_policy_action` | 动作权限，例如查看、日志、重启、伸缩、删除、终端 |
@@ -104,11 +104,15 @@ GET  /api/v1/k8s/service-tree
 POST /api/v1/k8s/service-tree/node
 GET  /api/v1/k8s/service-tree/bindings
 POST /api/v1/k8s/service-tree/bindings
+DELETE /api/v1/k8s/service-tree/bindings
 GET  /api/v1/k8s/service-tree/unclassified
 GET  /api/v1/k8s/service-tree/binding-rules
 POST /api/v1/k8s/service-tree/binding-rules
+DELETE /api/v1/k8s/service-tree/binding-rules
 GET  /api/v1/k8s/service-tree/policies
 POST /api/v1/k8s/service-tree/policies
+DELETE /api/v1/k8s/service-tree/policies
+GET  /api/v1/k8s/service-tree/authorized-resources
 GET  /api/v1/k8s/service-tree/principals
 GET  /api/v1/k8s/service-tree/app-labels
 GET  /api/v1/k8s/workloads?treeNodeId=&kind=&keyword=
@@ -119,6 +123,7 @@ GET  /api/v1/k8s/workloads?treeNodeId=&kind=&keyword=
 - `GET /api/v1/k8s/service-tree` 返回当前用户可见的裁剪后服务树。
 - `GET /api/v1/k8s/service-tree/app-labels` 使用已注册集群的 kubeconfig 通过 client-go 读取资源 `metadata.labels.app`，给绑定规则和授权过滤提供下拉候选。
 - `GET /api/v1/k8s/workloads` 必须根据 `treeNodeId` 和当前用户授权过滤资源。
+- `GET /api/v1/k8s/service-tree/authorized-resources` 按用户、角色或部门查看最终可见资源和动作，普通用户只能查询自身有效授权。
 - 现有详情、日志、重启、伸缩、删除、终端、YAML 修改接口必须接入服务树授权校验。
 - 前端只负责展示和传参，不能作为权限边界。
 
@@ -139,7 +144,7 @@ GET  /api/v1/k8s/workloads?treeNodeId=&kind=&keyword=
 服务树授权校验应在后端统一封装：
 
 ```text
-CheckK8sTreePermission(user, action, clusterId, namespace, kind, name, uid)
+AuthorizeK8sResourceAction(user, clusterId, namespace, kind, name, action)
 ```
 
 校验顺序：
@@ -238,6 +243,7 @@ WHERE path IN (
   '/api/v1/k8s/service-tree/unclassified',
   '/api/v1/k8s/service-tree/binding-rules',
   '/api/v1/k8s/service-tree/policies',
+  '/api/v1/k8s/service-tree/authorized-resources',
   '/api/v1/k8s/service-tree/principals',
   '/api/v1/k8s/service-tree/app-labels',
   '/api/v1/k8s/workloads'

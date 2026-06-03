@@ -54,6 +54,9 @@ func DetailServiceController(c *gin.Context) {
 	name := parser.ParseNameParameter(c)
 	namespace := parser.ParseNamespaceParameter(c)
 	dataSelect := parser.ParseDataSelectPathParameter(c)
+	if !authorizeK8sService(c, namespace, name, k8s.ServiceTreeActionView) {
+		return
+	}
 	data, err := service.GetServiceDetail(client, namespace, name, dataSelect)
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
@@ -71,6 +74,9 @@ func DeleteServiceController(c *gin.Context) {
 	}
 	name := parser.ParseNameParameter(c)
 	namespace := parser.ParseNamespaceParameter(c)
+	if !authorizeK8sService(c, namespace, name, k8s.ServiceTreeActionDelete) {
+		return
+	}
 	err = service.DeleteService(client, namespace, name)
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
@@ -92,6 +98,11 @@ func DeleteCollectionServiceController(c *gin.Context) {
 	if err != nil {
 		response.FailWithMessage(response.ParamError, err.Error(), c)
 		return
+	}
+	for _, item := range serviceList {
+		if !authorizeK8sService(c, item.Namespace, item.Name, k8s.ServiceTreeActionDelete) {
+			return
+		}
 	}
 
 	err = service.DeleteCollectionService(client, serviceList)
@@ -130,6 +141,9 @@ func DetailIngressController(c *gin.Context) {
 	}
 	name := parser.ParseNameParameter(c)
 	namespace := parser.ParseNamespaceParameter(c)
+	if !authorizeK8sIngress(c, namespace, name, k8s.ServiceTreeActionView) {
+		return
+	}
 	data, err := ingress.GetIngressDetail(client, namespace, name)
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
@@ -147,6 +161,9 @@ func DeleteIngressController(c *gin.Context) {
 	}
 	name := parser.ParseNameParameter(c)
 	namespace := parser.ParseNamespaceParameter(c)
+	if !authorizeK8sIngress(c, namespace, name, k8s.ServiceTreeActionDelete) {
+		return
+	}
 	err = ingress.DeleteIngress(client, namespace, name)
 	if err != nil {
 		response.FailWithMessage(response.InternalServerError, err.Error(), c)
@@ -168,6 +185,11 @@ func DeleteCollectionIngressController(c *gin.Context) {
 	if err != nil {
 		response.FailWithMessage(response.ParamError, err.Error(), c)
 		return
+	}
+	for _, item := range ingressList {
+		if !authorizeK8sIngress(c, item.Namespace, item.Name, k8s.ServiceTreeActionDelete) {
+			return
+		}
 	}
 
 	err = ingress.DeleteCollectionIngress(client, ingressList)
